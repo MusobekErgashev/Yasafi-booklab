@@ -1,0 +1,20 @@
+@import "tailwindcss";
+
+@theme {
+  /* Colors */
+  --color-primary: #0B192C;
+  --color-secondary: #E5A93B;
+  --color-tertiary: #271501;
+  --color-natural: #777778;
+  --color-background: #f9f8f6;
+
+  /* Font families */
+  --font-hanken: var(--font-hanken), sans-serif;
+  --font-satoshi: var(--font-satoshi), sans-serif;
+  --font-geist: var(--font-geist-sans), sans-serif;
+}
+
+body {
+    scroll-behavior: smooth;
+    box-sizing: border-box;
+}
