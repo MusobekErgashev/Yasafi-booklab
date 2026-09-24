@@ -118,7 +118,7 @@ const Books = () => {
     async function deleteCategory(id) {
         try {
             setLoading(true)
-            await api.delete(`/categories/${id}/`)
+            await api.delete('/categories/', { data: { id } })
             toast.success("Kategoriya muvaffaqiyatli o'chirildi")
             await getData()
         } catch (error) {
@@ -131,9 +131,10 @@ const Books = () => {
     const filteredBooks = books.filter((book) => {
         let matchesCategory = true
         if (selectedCategory === "uncategorized") {
-            matchesCategory = !book.category_id || !categories.some((c) => c.id === book.category_id)
+            matchesCategory = !book.category_name && (!book.category_id || !categories.some((c) => c.id === book.category_id))
         } else if (selectedCategory !== "") {
-            matchesCategory = String(book.category_id) === String(selectedCategory)
+            const catObj = categories.find((c) => String(c.id) === String(selectedCategory))
+            matchesCategory = (catObj && book.category_name === catObj.name) || String(book.category_id) === String(selectedCategory)
         }
         return matchesCategory
     })
@@ -143,12 +144,12 @@ const Books = () => {
         ...categories.map((cat) => ({
             value: cat.id,
             label: cat.name || cat.category_name,
-            count: books.filter((b) => b.category_id === cat.id).length
+            count: cat.books ? cat.books.length : books.filter((b) => b.category_name === cat.name || b.category_id === cat.id).length
         }))
     ]
 
     const uncategorizedCount = books.filter(
-        (b) => !b.category_id || !categories.some((c) => c.id === b.category_id)
+        (b) => !b.category_name && (!b.category_id || !categories.some((c) => c.id === b.category_id))
     ).length
 
     if (uncategorizedCount > 0) {

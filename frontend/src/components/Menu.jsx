@@ -4,20 +4,17 @@ import { pages } from '@/app/pages-export'
 import { LogOut, User } from 'lucide-react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import React, { useEffect, useState } from 'react'
 import useOpenMenu from '@/utils/useOpenMenu'
 import useHeaderTitle from '@/utils/useHeaderTitle'
 import WarningModal from './WarningModal'
-import Cookies from 'js-cookie'
 import api from '@/api/axios'
 
 const Menu = () => {
   const pathname = usePathname()
-  const router = useRouter()
-  const userId = Cookies.get("booklab_userId");
   const { isOpen } = useOpenMenu()
-  const { setTitle } = useHeaderTitle()
+  const setTitle = useHeaderTitle((state) => state.setTitle)
   const [showLogoutModal, setShowLogoutModal] = useState(false)
   const [user, setUser] = useState(null)
 
@@ -28,19 +25,25 @@ const Menu = () => {
     }
 
     const fetchUser = async () => {
-      if (!userId) return
-      const response = await api.get(`/users/${userId}`)
-      setUser(response.data)
+      try {
+        const response = await api.get('/users/me')
+        setUser(response.data)
+      } catch (err) {
+        console.error(err)
+      }
     }
     fetchUser()
-  }, [pathname, setTitle, userId])
+  }, [pathname, setTitle])
 
-  const handleLogout = () => {
-    Cookies.remove('booklab_token')
-    Cookies.remove('booklab_userId')
-    Cookies.remove('token')
-    setShowLogoutModal(false)
-    router.push('/login')
+  const handleLogout = async () => {
+    try {
+      await api.post('/auth/logout')
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setShowLogoutModal(false)
+      window.location.href = '/login'
+    }
   }
 
   return (
@@ -68,8 +71,8 @@ const Menu = () => {
           <User size={22} />
 
           <div className={`flex flex-col gap-0.5 ${isOpen ? 'block' : 'hidden'}`}>
-            <span className='font-medium text-md leading-none truncate whitespace-nowrap'>{user?.username}</span>
-            <span className='text-xs leading-none'>{user?.role}</span>
+            <span className='font-medium text-md leading-none truncate whitespace-nowrap'>{user?.login}</span>
+            <span className='text-xs leading-none'>{user?.is_admin ? "Admin" : "Ishchi"}</span>
           </div>
         </Link>
 

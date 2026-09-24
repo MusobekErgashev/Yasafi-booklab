@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 
 export function middleware(request) {
-  const token = request.cookies.get('booklab_token')?.value;
+  const token = request.cookies.get('access_token')?.value;
   const { pathname } = request.nextUrl;
 
-  const isPublicPath = pathname === '/login' || pathname === '/register';
+  const isPublicPath = pathname === '/login';
 
   if (!token && !isPublicPath) {
     return NextResponse.redirect(new URL('/login', request.url));
@@ -18,6 +18,6 @@ export function middleware(request) {
 
 export const config = {
   matcher: [
-    '/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!api|_next|_static|_vercel|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 };

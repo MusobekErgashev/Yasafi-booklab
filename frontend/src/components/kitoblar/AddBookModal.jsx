@@ -6,20 +6,25 @@ import api from '@/api/axios'
 import toast from 'react-hot-toast'
 
 const AddBookModal = ({ isOpen, onClose, categories = [], editingBook = null, onSuccess }) => {
-  const initialCategory = editingBook
-    ? categories?.find((c) => c.id === editingBook.category_id)
-    : null
-
-  const [name, setName] = useState(editingBook?.name || "")
-  const [size, setSize] = useState(editingBook?.size || "")
-  const [price, setPrice] = useState(
-    editingBook?.price !== undefined && editingBook?.price !== null
-      ? String(editingBook.price)
-      : ""
-  )
-  const [categoryName, setCategoryName] = useState(initialCategory?.name || "")
-  const [categoryId, setCategoryId] = useState(editingBook?.category_id || null)
+  const [name, setName] = useState("")
+  const [size, setSize] = useState("")
+  const [price, setPrice] = useState("")
+  const [categoryName, setCategoryName] = useState("")
   const [loading, setLoading] = useState(false)
+
+  React.useEffect(() => {
+    if (editingBook) {
+      setName(editingBook.name || "")
+      setSize(editingBook.size || "")
+      setPrice(editingBook.price !== undefined && editingBook.price !== null ? String(editingBook.price) : "")
+      setCategoryName(editingBook.category_name || "")
+    } else {
+      setName("")
+      setSize("")
+      setPrice("")
+      setCategoryName("")
+    }
+  }, [editingBook, isOpen])
 
   if (!isOpen) return null
 
@@ -30,49 +35,26 @@ const AddBookModal = ({ isOpen, onClose, categories = [], editingBook = null, on
     return cleanAmount.replace(/\B(?=(\d{3})+(?!\d))/g, ',')
   }
 
-  const handleCategoryInputChange = (val) => {
-    setCategoryName(val)
-    const existing = categories?.find(
-      (c) => c.name?.trim().toLowerCase() === val.trim().toLowerCase()
-    )
-    if (existing) {
-      setCategoryId(existing.id)
-    } else {
-      setCategoryId(null)
-    }
-  }
-
   const handleSelectCategory = (cat) => {
-    setCategoryId(cat.id)
-    setCategoryName(cat.name)
+    setCategoryName(cat.name || cat.category_name || "")
   }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
 
-    if (!name || !size || !price || !categoryName.trim()) return
+    if (!name.trim() || !size.trim() || !price) return
 
     setLoading(true)
     try {
-      let finalCategoryId = categoryId
-
-      if (!finalCategoryId) {
-        const existing = categories?.find(
-          (c) => c.name?.trim().toLowerCase() === categoryName.trim().toLowerCase()
-        )
-        if (existing) {
-          finalCategoryId = existing.id
-        } else {
-          const catRes = await api.post('/categories/', { name: categoryName.trim() })
-          finalCategoryId = catRes.data.id
-        }
-      }
+      const formattedCategoryName = categoryName.trim()
+        ? categoryName.trim().charAt(0).toUpperCase() + categoryName.trim().slice(1)
+        : null
 
       const payload = {
-        name: name.charAt(0).toUpperCase() + name.slice(1),
-        size,
+        name: name.trim().charAt(0).toUpperCase() + name.trim().slice(1),
+        size: size.trim().toUpperCase(),
         price: Number(price),
-        category_id: finalCategoryId,
+        category_name: formattedCategoryName,
         sales_count: editingBook ? (editingBook.sales_count || 0) : 0,
       }
 
@@ -86,9 +68,8 @@ const AddBookModal = ({ isOpen, onClose, categories = [], editingBook = null, on
 
       setName("")
       setSize("")
-      setPrice('')
+      setPrice("")
       setCategoryName("")
-      setCategoryId(null)
       onClose()
       if (onSuccess) onSuccess()
     } catch (error) {
@@ -166,22 +147,21 @@ const AddBookModal = ({ isOpen, onClose, categories = [], editingBook = null, on
 
           <div>
             <label htmlFor="category" className="block text-[12px] font-semibold uppercase tracking-wider text-gray-500 mb-1.5">
-              Kategoriya
+              Kategoriya (ixtiyoriy)
             </label>
             <input
               type="text"
               id="category"
               name="category"
-              required
               value={categoryName}
-              onChange={(e) => handleCategoryInputChange(e.target.value)}
+              onChange={(e) => setCategoryName(e.target.value)}
               placeholder="Masalan: Darslik"
               className="w-full rounded-lg border border-gray-200 px-3.5 py-2.5 text-[15px] text-gray-900 outline-none focus:border-[#0F172A] focus:ring-1 focus:ring-[#0F172A] transition-all"
             />
 
             <div className='mt-3 flex flex-wrap gap-2 max-h-50 overflow-y-auto custom-scrollbar'>
               {categories?.map((cat, index) => {
-                const isSelected = categoryId === cat.id || (categoryName.trim().toLowerCase() === cat.name?.trim().toLowerCase())
+                const isSelected = categoryName.trim().toLowerCase() === (cat.name || cat.category_name)?.trim().toLowerCase()
                 return (
                   <button
                     key={cat.id || index}
@@ -192,7 +172,7 @@ const AddBookModal = ({ isOpen, onClose, categories = [], editingBook = null, on
                       : 'border-gray-200 text-gray-900 hover:bg-slate-50'
                       }`}
                   >
-                    <span>{cat.name}</span>
+                    <span>{cat.name || cat.category_name}</span>
                   </button>
                 )
               })}

@@ -82,6 +82,8 @@ const CategoriesTab = ({ categories, books, deleteCategory, refreshData, loading
             categories.map((category) => {
               const isOpen = activeCategoryId === category.id
 
+              const categoryBooks = category.books || books?.filter((book) => book.category_name === category.name || book.category_id === category.id) || [];
+
               return (
                 <div
                   key={category.id}
@@ -114,8 +116,8 @@ const CategoriesTab = ({ categories, books, deleteCategory, refreshData, loading
                     <div className="overflow-hidden bg-slate-50/60 rounded-lg border border-slate-100">
                       <div className="p-2.5 space-y-1.5">
                         {
-                          books?.filter((book) => book.category_id === category.id).length > 0 ?
-                            books?.filter((book) => book.category_id === category.id).map((book, subIndex) => (
+                          categoryBooks.length > 0 ?
+                            categoryBooks.map((book) => (
                               <div key={book.id} className="flex items-center gap-1.5 text-slate-700 font-medium text-[14px] px-2 py-1.5 rounded-md">
                                 <BookOpen className="w-4 h-4" />
                                 <span>{book.name}</span> -
@@ -143,7 +145,7 @@ const CategoriesTab = ({ categories, books, deleteCategory, refreshData, loading
                         }`}
                     >
                       <span className='flex items-center gap-1'>
-                        <span>{books?.filter((book) => book.category_id === category.id).length} ta kitob</span>
+                        <span>{categoryBooks.length} ta kitob</span>
                       </span>
                       <ChevronDown
                         size={16}

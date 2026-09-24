@@ -6,17 +6,23 @@ import api from '@/api/axios'
 import toast from 'react-hot-toast'
 
 const AddCategoryModal = ({ isOpen, onClose, editingCategory = null, onSuccess }) => {
-  const [name, setName] = useState(
-    editingCategory ? (editingCategory.name || editingCategory.category_name || "") : ""
-  )
+  const [name, setName] = useState("")
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (editingCategory) {
+      setName(editingCategory.name || editingCategory.category_name || "")
+    } else {
+      setName("")
+    }
+  }, [editingCategory, isOpen])
 
   if (!isOpen) return null
 
   const handleSubmit = async (e) => {
     e.preventDefault()
 
-    if (!name) return
+    if (!name.trim()) return
 
     setLoading(true)
 
@@ -24,7 +30,7 @@ const AddCategoryModal = ({ isOpen, onClose, editingCategory = null, onSuccess }
       const formattedName = name.trim().charAt(0).toUpperCase() + name.trim().slice(1)
 
       if (editingCategory) {
-        await api.put(`/categories/${editingCategory.id}/`, { name: formattedName })
+        await api.put('/categories/', { id: editingCategory.id, name: formattedName })
         toast.success("Kategoriya muvaffaqiyatli tahrirlandi")
       } else {
         await api.post('/categories/', { name: formattedName })

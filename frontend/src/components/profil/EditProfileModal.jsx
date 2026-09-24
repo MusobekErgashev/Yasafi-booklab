@@ -6,21 +6,17 @@ import { useEffect, useState } from "react"
 
 const EditProfileModal = ({ formData, onClose, setFormData, userId }) => {
     const [editFormData, setEditFormData] = useState({
-        name: "",
-        username: "",
+        first_name: "",
+        last_name: "",
+        login: "",
         phone: "",
-        role: "",
-        created_at: "",
-        user_id: "",
     })
 
     const payload = {
-        name: editFormData.name.trim(),
-        username: editFormData.username.trim(),
+        first_name: editFormData.first_name.trim(),
+        last_name: editFormData.last_name.trim(),
+        login: editFormData.login.trim(),
         phone: editFormData.phone.trim(),
-        role: editFormData.role,
-        created_at: editFormData.created_at,
-        user_id: editFormData.user_id,
     }
 
     useEffect(() => {

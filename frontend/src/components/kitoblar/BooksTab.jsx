@@ -66,15 +66,13 @@ const BooksTab = ({ categories, books, deleteBook, refreshData, loading }) => {
                                 </thead>
                                 <tbody>
                                     {books.map((book, index) => {
-                                        const category = categories.find((category) => category.id === book.category_id)
-
                                         return (
                                             <tr key={book.id} className="bg-white border-b border-slate-100 hover:bg-slate-50 transition-colors">
                                                 <td className="px-6 py-4 font-medium text-slate-900">{index + 1}</td>
                                                 <td className="px-6 py-4 font-medium text-slate-900">{book.name}</td>
                                                 <td className="px-6 py-4">{book.size}</td>
                                                 <td className="px-6 py-4">{formatCurrency(book.price)} so'm</td>
-                                                <td className="px-6 py-4">{category ? category.name : "Kategoriyasiz"}</td>
+                                                <td className="px-6 py-4">{book.category_name || "Kategoriyasiz"}</td>
                                                 <td className="px-6 py-4">{book.sales_count}</td>
                                                 <td className="py-4 px-2">
                                                     <div className="flex items-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">

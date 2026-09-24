@@ -1,98 +1,34 @@
 'use client'
 
 import api from '@/api/axios'
-import Cookies from 'js-cookie'
-import { Briefcase, ChevronDown, Lock, User } from 'lucide-react'
+import { Lock, User } from 'lucide-react'
 import Image from 'next/image'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation';
 import { useState } from 'react'
+import toast from 'react-hot-toast'
 
 const Login = () => {
-  const router = useRouter();
-
-  const hintMessages = [
-    "Avval barcha maydonlarni to'ldiring!",
-    "Login kiritilishi kerak!",
-    "Parol kiritilishi kerak!",
-    "Login yoki parol noto'g'ri!",
-    "Login kamida 4 ta belgidan iborat bo'lishi kerak!",
-    "Parol kamida 6 ta belgidan iborat bo'lishi kerak!",
-  ];
-
   const [hint, setHint] = useState("");
   const [login, setLogin] = useState("");
   const [password, setPassword] = useState("");
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    setHint("")
 
     const trimmedLogin = login.trim();
     const trimmedPassword = password.trim();
 
-    if (!trimmedLogin && !trimmedPassword) {
-      setHint(hintMessages[0]);
-      setTimeout(() => {
-        setHint("")
-      }, 3000);
-      return;
-    }
-    if (!trimmedLogin) {
-      setHint(hintMessages[1]);
-      setTimeout(() => {
-        setHint("")
-      }, 3000);
-      return;
-    }
-    if (!trimmedPassword) {
-      setHint(hintMessages[2]);
-      setTimeout(() => {
-        setHint("")
-      }, 3000);
-      return;
-    }
-    if (trimmedLogin.length < 4) {
-      setHint(hintMessages[4]);
-      setTimeout(() => {
-        setHint("")
-      }, 3000);
-      return;
-    }
-    if (trimmedPassword.length < 6) {
-      setHint(hintMessages[5]);
-      setTimeout(() => {
-        setHint("")
-      }, 3000);
-      return;
-    }
-
     try {
-      const response = await api.post("/auth/login/", {
-        username: trimmedLogin,
+      const response = await api.post("auth/login/", {
+        login: trimmedLogin,
         password: trimmedPassword,
       });
 
-      const data = response.data;
+      toast.success(response?.data?.message);
 
-      if (response.status === 200 || response.status === 201) {
-        Cookies.set('booklab_token', data.access, { expires: 7 });
-        Cookies.set('booklab_userId', data.id, { expires: 7 });
-
-        router.push('/buyurtmalar');
-      }
+      window.location.href = '/buyurtmalar';
     } catch (error) {
-      if (error.response) {
-        setHint(hintMessages[3]);
-        setTimeout(() => {
-          setHint("")
-        }, 3000);
-      } else {
-        setHint("Internet bilan bog'lanishda xatolik yuz berdi!");
-        setTimeout(() => {
-          setHint("")
-        }, 3000);
-        window.location.reload();
-      }
+      setHint(error.response?.data?.message);
     }
   };
 
@@ -152,8 +88,6 @@ const Login = () => {
           >
             Tizimga kirish
           </button>
-
-          <p className='text-slate-400 text-[14px] font-medium text-center'>{"Hisobingiz yo'qmi? "} <Link href="/register" className='text-primary font-semibold hover:underline'>{"Ro'yxatdan o'tish"}</Link></p>
         </form>
       </div>
     </div>

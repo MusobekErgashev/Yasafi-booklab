@@ -1,7 +1,8 @@
 'use client'
 
+import api from '@/api/axios'
 import OrderCard from '@/components/buyurtmalar/OrderCard'
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 
 const thead = [
     { id: 1, title: "No", width: "w-14" },
@@ -46,29 +47,77 @@ const initialOrders = [
 const emptyTdStyle = "border border-slate-200 p-4 align-top w-85"
 
 const OrdersTable = () => {
-    const [orders, setOrders] = useState(initialOrders)
+    const [orders, setOrders] = useState([])
+    const [loading, setLoading] = useState(true)
 
-    const handleAccept = (orderId) => {
-        setOrders(prev => prev.map(order => {
-            if (order.id !== orderId) return order
-
-            const currentIndex = statusMap.indexOf(order.status)
-            const nextIndex = Math.min(currentIndex + 1, statusMap.length - 1)
-            return { ...order, status: statusMap[nextIndex], isRejected: false }
-        }))
+    async function getOrders() {
+        try {
+            setLoading(true)
+            const res = await api.get('orders')
+            if (Array.isArray(res.data)) {
+                setOrders(res.data)
+            } else {
+                setOrders([])
+            }
+        } catch (error) {
+            console.log("Buyurtmalarni yuklashda xatolik:", error)
+            setOrders([])
+        } finally {
+            setLoading(false)
+        }
     }
 
-    const handleReject = (orderId) => {
-        setOrders(prev => prev.map(order => {
-            if (order.id !== orderId) return order
+    useEffect(() => {
+        getOrders()
+    }, [])
 
-            if (order.status === "ordered") {
-                return { ...order, isRejected: true }
-            }
-            const currentIndex = statusMap.indexOf(order.status)
+    const handleAccept = async (orderId) => {
+        const targetOrder = orders.find(o => o.id === orderId)
+        if (!targetOrder) return
+
+        const currentStatus = targetOrder.status || "ordered"
+        const currentIndex = statusMap.indexOf(currentStatus)
+        const nextIndex = Math.min(currentIndex + 1, statusMap.length - 1)
+        const newStatus = statusMap[nextIndex]
+
+        try {
+            await api.patch(`orders/${orderId}`, { status: newStatus })
+            setOrders(prev => prev.map(order => {
+                if (order.id !== orderId) return order
+                return { ...order, status: newStatus, isRejected: false }
+            }))
+        } catch (error) {
+            console.log("Statusni o'zgartirishda xatolik:", error)
+        }
+    }
+
+    const handleReject = async (orderId) => {
+        const targetOrder = orders.find(o => o.id === orderId)
+        if (!targetOrder) return
+
+        const currentStatus = targetOrder.status || "ordered"
+        let newStatus = ""
+        let isRejected = false
+
+        if (currentStatus === "ordered" || currentStatus === "rejected") {
+            newStatus = "rejected"
+            isRejected = true
+        } else {
+            const currentIndex = statusMap.indexOf(currentStatus)
             const prevIndex = Math.max(currentIndex - 1, 0)
-            return { ...order, status: statusMap[prevIndex] }
-        }))
+            newStatus = statusMap[prevIndex]
+            isRejected = false
+        }
+
+        try {
+            await api.patch(`orders/${orderId}`, { status: newStatus })
+            setOrders(prev => prev.map(order => {
+                if (order.id !== orderId) return order
+                return { ...order, status: newStatus, isRejected }
+            }))
+        } catch (error) {
+            console.log("Statusni rad etishda xatolik:", error)
+        }
     }
 
     return (
@@ -84,31 +133,47 @@ const OrdersTable = () => {
                     </tr>
                 </thead>
                 <tbody>
-                    {orders.map((order, rowIndex) => {
-                        const activeColIndex = statusMap.indexOf(order.status)
+                    {loading ? (
+                        <tr>
+                            <td colSpan={thead.length} className="border border-slate-200 p-8 text-center text-slate-400 font-medium">
+                                Yuklanmoqda...
+                            </td>
+                        </tr>
+                    ) : orders && orders.length > 0 ? (
+                        orders.map((order, rowIndex) => {
+                            const currentStatus = order.status || "ordered"
+                            let activeColIndex = statusMap.indexOf(currentStatus)
+                            if (activeColIndex === -1) activeColIndex = 0
 
-                        return (
-                            <tr key={order.id}>
-                                <td className='border border-slate-200 p-4 text-[16px] text-primary text-center align-top font-semibold w-14'>
-                                    {rowIndex + 1}
-                                </td>
+                            return (
+                                <tr key={order.id || rowIndex}>
+                                    <td className='border border-slate-200 p-4 text-[16px] text-primary text-center align-top font-semibold w-14'>
+                                        {rowIndex + 1}
+                                    </td>
 
-                                {statusMap.map((_, colIndex) =>
-                                    activeColIndex === colIndex ? (
-                                        <OrderCard
-                                            key={colIndex}
-                                            order={order}
-                                            isRejected={order.isRejected}
-                                            onAccept={() => handleAccept(order.id)}
-                                            onReject={() => handleReject(order.id)}
-                                        />
-                                    ) : (
-                                        <td key={colIndex} className={emptyTdStyle}></td>
-                                    )
-                                )}
-                            </tr>
-                        )
-                    })}
+                                    {statusMap.map((_, colIndex) =>
+                                        activeColIndex === colIndex ? (
+                                            <OrderCard
+                                                key={colIndex}
+                                                order={order}
+                                                isRejected={order.isRejected}
+                                                onAccept={() => handleAccept(order.id)}
+                                                onReject={() => handleReject(order.id)}
+                                            />
+                                        ) : (
+                                            <td key={colIndex} className={emptyTdStyle}></td>
+                                        )
+                                    )}
+                                </tr>
+                            )
+                        })
+                    ) : (
+                        <tr>
+                            <td colSpan={thead.length} className="border border-slate-200 p-8 text-center text-slate-400 font-medium">
+                                Buyurtmalar mavjud emas
+                            </td>
+                        </tr>
+                    )}
                 </tbody>
             </table>
         </div>

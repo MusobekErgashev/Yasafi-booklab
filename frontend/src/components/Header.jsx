@@ -7,10 +7,12 @@ import useHeaderTitle from '@/utils/useHeaderTitle'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import useDarkMode from '@/utils/useDarkMode'
+import useQuery from '@/utils/useQuery'
 
 const Header = () => {
   const { toggle } = useOpenMenu()
   const { title, description } = useHeaderTitle()
+  const { query, setQuery, clearQuery } = useQuery()
   const { isDark, toggle: toggleDarkMode } = useDarkMode()
   const path = usePathname()
 
@@ -31,7 +33,7 @@ const Header = () => {
         noSearchPages.includes(path) ? null : (
           <div className="border group/search border-gray-200 focus-within:border-primary/45 transition-all duration-300 ease-in-out flex rounded-md px-3 py-1.5 gap-2 items-center">
             <Search size={22} className='text-slate-400' />
-            <input type="text" placeholder={title + " ichidan qidirish..."} className='outline-none text-primary min-w-100 text-md w-full' />
+            <input type="text" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={title + " ichidan qidirish..."} className='outline-none text-primary min-w-100 text-md w-full' />
           </div>
         )
       }
