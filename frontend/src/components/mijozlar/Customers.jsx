@@ -1,12 +1,23 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import CustomersTab from './CustomersTab'
 import BranchesTab from './BranchesTab'
 import { Search } from 'lucide-react'
+import api from '@/api/axios'
 
 const Customers = () => {
-    const [activeTab, setActiveTab] = React.useState("customers")
+    const [activeTab, setActiveTab] = useState("customers")
+    const [data, setData] = useState([])
+
+    useEffect(() => {
+        const fetchCustomers = async () => {
+            const res = await api.get("customers")
+            setData(res.data)
+        }
+        fetchCustomers()
+    }, [])
+
     return (
         <div className='space-y-3 font-geist'>
             <div className='flex gap-3'>
@@ -30,7 +41,7 @@ const Customers = () => {
                     ) : null
                 }
             </div>
-            {activeTab === "customers" ? <CustomersTab /> : <BranchesTab />}
+            {activeTab === "customers" ? <CustomersTab data={data} /> : <BranchesTab data={data} />}
         </div>
     )
 }

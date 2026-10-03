@@ -10,23 +10,26 @@ import {
   UserPlus
 } from 'lucide-react'
 
-const mockClients = [
-  { id: 1, client_id: 482910, name: "Musobek", phone: "+998 90 123 45 67", company_name: "Polyglot", created_at: "2026-07-09" },
-  { id: 2, client_id: 715384, name: "Asilbek Olimov", phone: "+998 93 777 88 99", company_name: "Yashil Chiroq MCHJ", created_at: "2026-07-10" },
-  { id: 3, client_id: 194827, name: "Zuhra Karimova", phone: "+998 99 456 11 22", company_name: "Smart Edu", created_at: "2026-07-11" },
-]
+const CustomersTab = ({ data }) => {
+  function formatDate(dateString) {
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
 
-const CustomersTab = () => {
-  const [clients, setClients] = useState(mockClients)
+    return `${year}-${month}-${day} ${hours}:${minutes}`;
+  }
 
   return (
     <div className="w-full space-y-4 animate-fade-in font-geist">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white p-4 rounded-xl border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
         <div>
           <h3 className="text-[16px] font-bold text-slate-800">Jami mijozlar</h3>
-          <p className="text-[13px] text-slate-400 mt-0.5">Tizimdagi jami faol mijozlar soni: <span className="font-semibold text-slate-700">{clients.length} ta</span></p>
+          <p className="text-[13px] text-slate-400 mt-0.5">Tizimdagi jami faol mijozlar soni: <span className="font-semibold text-slate-700">{data?.length} ta</span></p>
         </div>
-        
+
         <div className="flex items-center gap-2 w-full sm:w-auto">
           <button className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 text-[13px] font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-all cursor-pointer">
             <Download className="w-4 h-4" /> Export (.xlsx)
@@ -52,34 +55,34 @@ const CustomersTab = () => {
             </thead>
 
             <tbody className="divide-y divide-slate-50 text-[14px] text-slate-700">
-              {clients.map((client, index) => (
+              {data?.map((client, index) => (
                 <tr key={client.id} className="hover:bg-slate-50/50 transition-colors group">
-                  
+
                   <td className="py-4 px-5 text-center font-mono text-[13px] font-medium text-slate-500">
                     {index + 1}
                   </td>
-                  
+
                   <td className="py-4 px-5 font-semibold text-slate-900">
                     <div className="flex items-center gap-2.5">
                       <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-[13px]">
-                        {client.name.charAt(0)}
+                        {client?.customer_name?.charAt(0)}
                       </div>
-                      <span>{client.name}</span>
+                      <span>{client?.customer_name}</span>
                     </div>
                   </td>
-                  
+
                   <td className="py-4 px-5 text-slate-600 font-medium">
-                    {client.company_name || <span className="text-slate-300 italic text-[13px]">Mavjud emas</span>}
+                    {client?.branch_name || <span className="text-slate-300 italic text-[13px]">Mavjud emas</span>}
                   </td>
-                  
+
                   <td className="py-4 px-5 font-medium text-slate-600">
-                    {client.phone}
+                    {client?.phone}
                   </td>
-                  
+
                   <td className="py-4 px-5 text-slate-400 text-[13px]">
-                    {client.created_at}
+                    {formatDate(client?.created_at)}
                   </td>
-                  
+
                   <td className="py-4 px-5 text-center">
                     <div className="flex items-center justify-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
                       <button className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all cursor-pointer" title="Tahrirlash">
@@ -96,9 +99,9 @@ const CustomersTab = () => {
             </tbody>
           </table>
         </div>
-        
+
         {/* Agar mijozlar bo'lmasa ko'rinadigan qism */}
-        {clients.length === 0 && (
+        {data?.length === 0 && (
           <div className="py-12 text-center text-slate-400 text-[14px]">
             Mijozlar topilmadi.
           </div>

@@ -1,5 +1,6 @@
 const express = require("express");
 require('dotenv').config();
+require("./bot/telegram-bot");
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
 const app = express();

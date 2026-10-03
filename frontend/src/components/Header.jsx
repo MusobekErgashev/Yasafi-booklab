@@ -1,6 +1,6 @@
 'use client'
 
-import { Bell, Moon, Search, Sun, TextAlignJustify } from 'lucide-react'
+import { Bell, Moon, Search, Sun, TextAlignJustify, X } from 'lucide-react'
 import React from 'react'
 import useOpenMenu from '@/utils/useOpenMenu'
 import useHeaderTitle from '@/utils/useHeaderTitle'
@@ -34,6 +34,11 @@ const Header = () => {
           <div className="border group/search border-gray-200 focus-within:border-primary/45 transition-all duration-300 ease-in-out flex rounded-md px-3 py-1.5 gap-2 items-center">
             <Search size={22} className='text-slate-400' />
             <input type="text" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={title + " ichidan qidirish..."} className='outline-none text-primary min-w-100 text-md w-full' />
+            {query && (
+              <button type="button" onClick={clearQuery} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <X size={18} />
+              </button>
+            )}
           </div>
         )
       }

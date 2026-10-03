@@ -1,12 +1,12 @@
 import React, { useState } from 'react'
-import { 
-  Building2, 
-  Users, 
-  Calendar, 
-  Edit3, 
-  Trash2, 
-  Plus, 
-  X, 
+import {
+  Building2,
+  Users,
+  Calendar,
+  Edit3,
+  Trash2,
+  Plus,
+  X,
   ChevronRight,
   Briefcase
 } from 'lucide-react'
@@ -30,13 +30,13 @@ const mockClientsDatabase = {
   // ... qolgan mijozlar
 }
 
-const BranchesTab = () => {
+const BranchesTab = ({ data }) => {
   const [branches, setBranches] = useState(mockBranches)
   const [selectedBranch, setSelectedBranch] = useState(null) // Bosilgan filialni saqlash uchun
 
   return (
     <div className="w-full space-y-5 animate-fade-in relative">
-      
+
       {/* 1. Yuqori panel */}
       <div className="flex justify-between items-center bg-white p-4 rounded-xl border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.01)]">
         <div>
@@ -53,7 +53,7 @@ const BranchesTab = () => {
       {/* 2. Filiallar Grid (Kartochkalar tizimi) */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {branches.map((branch) => (
-          <div 
+          <div
             key={branch.id}
             className="bg-white border border-slate-100 rounded-xl p-5 shadow-[0_2px_12px_rgba(0,0,0,0.01)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.03)] border-l-4 border-l-[#0f172a] transition-all duration-300 flex flex-col justify-between group"
           >
@@ -68,7 +68,7 @@ const BranchesTab = () => {
                     {branch.branch_name}
                   </h4>
                 </div>
-                
+
                 {/* Tahrirlash va O'chirish tugmalari */}
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                   <button className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all cursor-pointer" title="Tahrirlash">
@@ -96,8 +96,8 @@ const BranchesTab = () => {
               <span className="text-[12px] text-slate-400 flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5" /> {branch.created_at}
               </span>
-              
-              <button 
+
+              <button
                 onClick={() => setSelectedBranch(branch)}
                 className="text-[13px] font-semibold text-slate-600 hover:text-[#0f172a] flex items-center gap-0.5 cursor-pointer bg-slate-50 px-3 py-1.5 rounded-md hover:bg-slate-100 transition-colors"
               >
@@ -112,7 +112,7 @@ const BranchesTab = () => {
       {selectedBranch && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="bg-white rounded-xl max-w-lg w-full border border-slate-200 shadow-2xl overflow-hidden animate-slide-up">
-            
+
             {/* Modal Head */}
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-2">
@@ -121,7 +121,7 @@ const BranchesTab = () => {
                   {selectedBranch.branch_name} xodimlari
                 </h3>
               </div>
-              <button 
+              <button
                 onClick={() => setSelectedBranch(null)}
                 className="p-1 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition-all cursor-pointer"
               >
@@ -158,7 +158,7 @@ const BranchesTab = () => {
 
             {/* Modal Footer */}
             <div className="p-3 border-t border-slate-100 bg-slate-50/50 flex justify-end">
-              <button 
+              <button
                 onClick={() => setSelectedBranch(null)}
                 className="px-4 py-2 text-[13px] font-semibold text-slate-600 hover:bg-slate-200/50 rounded-lg transition-colors cursor-pointer"
               >
