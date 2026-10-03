@@ -55,7 +55,7 @@ export default function RootLayout({ children }) {
       lang="en"
       className={`${geistSans.variable} ${satoshi.variable} ${hankenGrotesk.variable} h-full antialiased`}
     >
-      <body className="h-screen bg-background flex">
+      <body className="h-screen overflow-x-hidden bg-background flex">
         <Toaster position="top-center" reverseOrder={false} />
         <Menu />
         <div className="flex flex-col w-full">

@@ -4,7 +4,7 @@ import api from '@/api/axios'
 import OrderCard from '@/components/buyurtmalar/OrderCard'
 import React, { useEffect, useState } from 'react'
 import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from '@headlessui/react'
-import { ChevronsUpDown, Check, CircleCheck, Filter, Calendar, ArrowUpDown, RotateCcw, SlidersHorizontal, X } from 'lucide-react'
+import { ChevronsUpDown, Check, CircleCheck, Filter, Calendar, ArrowUpDown, RotateCcw, SlidersHorizontal, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import useQuery from '@/utils/useQuery'
 
 const thead = [
@@ -37,13 +37,19 @@ const OrdersTable = () => {
     const [filterStatus, setFilterStatus] = useState("")
     const [dateFrom, setDateFrom] = useState("")
     const [dateTo, setDateTo] = useState("")
+    const [page, setPage] = useState(1)
+    const [limit, setLimit] = useState(10)
+    const [total, setTotal] = useState(0)
 
     const { query, clearQuery } = useQuery()
 
     async function getOrders() {
         try {
             setLoading(true)
-            const params = {}
+            const params = {
+                page,
+                limit
+            }
             if (filterSort) params.order = filterSort
             if (filterStatus) params.status = filterStatus
             if (dateFrom) params.from = dateFrom
@@ -51,22 +57,33 @@ const OrdersTable = () => {
             if (query && query.trim() !== '') params.q = query.trim()
 
             const res = await api.get('orders', { params })
-            if (Array.isArray(res.data)) {
+            if (res.data && Array.isArray(res.data.orders)) {
+                setOrders(res.data.orders)
+                setTotal(res.data.total ?? res.data.orders.length)
+            } else if (Array.isArray(res.data)) {
                 setOrders(res.data)
+                setTotal(res.data.length)
             } else {
                 setOrders([])
+                setTotal(0)
             }
         } catch (error) {
             console.log("Buyurtmalarni yuklashda xatolik:", error)
             setOrders([])
+            setTotal(0)
         } finally {
             setLoading(false)
         }
     }
 
+    // Reset to page 1 when filter options change
+    useEffect(() => {
+        setPage(1)
+    }, [filterSort, filterStatus, dateFrom, dateTo, query, limit])
+
     useEffect(() => {
         getOrders()
-    }, [filterSort, filterStatus, dateFrom, dateTo, query])
+    }, [filterSort, filterStatus, dateFrom, dateTo, query, page, limit])
 
     const handleAccept = async (orderId) => {
         const targetOrder = orders.find(o => o.id === orderId)
@@ -118,10 +135,11 @@ const OrdersTable = () => {
     }
 
     const isFiltered = filterSort !== "desc" || filterStatus !== "" || dateFrom || dateTo || (query && query.trim() !== "")
+    const totalPages = Math.max(1, Math.ceil(total / limit))
 
     return (
         <div className='font-geist space-y-3'>
-            <div className="bg-white px-3.5 py-2.5 rounded-xl flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border border-slate-200/80 shadow-[0_2px_10px_rgba(0,0,0,0.02)] transition-all">
+            <div className="bg-white p-4 rounded-xl flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 border border-slate-200/80 shadow-[0_2px_10px_rgba(0,0,0,0.02)] transition-all">
                 <div className="flex items-center gap-2.5">
                     <div className="p-2 bg-slate-100 rounded-lg text-slate-600">
                         <SlidersHorizontal className="w-5 h-5 text-slate-700" />
@@ -130,7 +148,7 @@ const OrdersTable = () => {
                         <div className="flex items-center gap-2">
                             <h2 className="text-lg font-bold text-slate-800 tracking-tight">Barcha buyurtmalar</h2>
                             <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-slate-100 text-slate-700 border border-slate-200/60">
-                                {orders.length} ta
+                                {total} ta
                             </span>
                         </div>
                         <p className="text-xs text-slate-400">Buyurtmalarni saralash va filtrlash</p>
@@ -286,7 +304,7 @@ const OrdersTable = () => {
                                 return (
                                     <tr key={order.id || rowIndex}>
                                         <td className='border border-slate-200 p-4 text-[16px] text-primary text-center align-top font-semibold w-14'>
-                                            {rowIndex + 1}
+                                            {(page - 1) * limit + rowIndex + 1}
                                         </td>
 
                                         {statusMap.map((_, colIndex) =>
@@ -314,6 +332,74 @@ const OrdersTable = () => {
                         )}
                     </tbody>
                 </table>
+            </div>
+
+            {/* Pagination Controls */}
+            <div className="bg-white px-4 py-3 rounded-xl border border-slate-200/80 shadow-[0_2px_10px_rgba(0,0,0,0.02)] flex flex-col sm:flex-row justify-between items-center gap-3">
+                <div className="flex items-center gap-3 text-xs text-slate-500 font-medium">
+                    <span className="flex items-center gap-1.5">
+                        Har bir sahifada:
+                        <select
+                            value={limit}
+                            onChange={(e) => setLimit(Number(e.target.value))}
+                            className="bg-slate-50 border border-slate-200/90 rounded-md px-2 py-1 text-xs text-slate-700 font-semibold outline-none focus:border-blue-500 cursor-pointer"
+                        >
+                            <option value={10}>10 ta</option>
+                            <option value={20}>20 ta</option>
+                            <option value={50}>50 ta</option>
+                            <option value={100}>100 ta</option>
+                        </select>
+                    </span>
+                    <span className="text-slate-300">|</span>
+                    <span>
+                        {total === 0 ? "0 ta buyurtma" : `${(page - 1) * limit + 1}–${Math.min(total, page * limit)} / ${total} ta buyurtma`}
+                    </span>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                    <button
+                        type="button"
+                        disabled={page <= 1}
+                        onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                        className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+                        title="Oldingi sahifa"
+                    >
+                        <ChevronLeft className="w-4 h-4" />
+                    </button>
+
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                        .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                        .reduce((acc, p, idx, arr) => {
+                            if (idx > 0 && p - arr[idx - 1] > 1) {
+                                acc.push("...");
+                            }
+                            acc.push(p);
+                            return acc;
+                        }, [])
+                        .map((item, idx) => item === "..." ? (
+                            <span key={`dots-${idx}`} className="px-1.5 text-xs text-slate-400 select-none">...</span>
+                        ) : (
+                            <button
+                                key={item}
+                                type="button"
+                                onClick={() => setPage(item)}
+                                className={`min-w-8 h-8 px-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${page === item ? "bg-slate-900 text-white shadow-xs" : "text-slate-600 hover:bg-slate-100 border border-slate-200/60"}`}
+                            >
+                                {item}
+                            </button>
+                        ))
+                    }
+
+                    <button
+                        type="button"
+                        disabled={page >= totalPages}
+                        onClick={() => setPage(prev => Math.min(totalPages, prev + 1))}
+                        className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+                        title="Keyingi sahifa"
+                    >
+                        <ChevronRight className="w-4 h-4" />
+                    </button>
+                </div>
             </div>
         </div>
     )

@@ -6,6 +6,7 @@ class OrderController {
             const { page, limit, order, status, from, to, size, q } = req.query;
 
             let queryText = 'SELECT * FROM orders';
+            let countQueryText = 'SELECT COUNT(*) FROM orders';
             const conditions = [];
             const params = [];
 
@@ -44,27 +45,38 @@ class OrderController {
             }
 
             if (conditions.length > 0) {
-                queryText += ' WHERE ' + conditions.join(' AND ');
+                const whereClause = ' WHERE ' + conditions.join(' AND ');
+                queryText += whereClause;
+                countQueryText += whereClause;
             }
+
+            const countRes = await pool.query(countQueryText, params);
+            const total = parseInt(countRes.rows[0].count, 10);
 
             const sortDirection = (order && order.toLowerCase() === 'asc') ? 'ASC' : 'DESC';
             queryText += ` ORDER BY created_at ${sortDirection}, id ${sortDirection}`;
 
+            const queryParams = [...params];
             if (limit) {
                 const parsedLimit = parseInt(limit, 10);
                 const parsedPage = parseInt(page, 10) || 1;
                 const offset = (parsedPage - 1) * parsedLimit;
 
-                params.push(parsedLimit);
-                queryText += ` LIMIT $${params.length}`;
+                queryParams.push(parsedLimit);
+                queryText += ` LIMIT $${queryParams.length}`;
 
-                params.push(offset);
-                queryText += ` OFFSET $${params.length}`;
+                queryParams.push(offset);
+                queryText += ` OFFSET $${queryParams.length}`;
             }
 
-            const orders = await pool.query(queryText, params);
+            const orders = await pool.query(queryText, queryParams);
 
-            res.status(200).json(orders.rows);
+            res.status(200).json({
+                total,
+                orders: orders.rows,
+                page: page ? parseInt(page, 10) : 1,
+                limit: limit ? parseInt(limit, 10) : total
+            });
         } catch (error) {
             console.log("Error in getAllOrders:", error);
             res.status(500).json({ message: 'Serverda xatolik yuz berdi!' });
@@ -91,9 +103,20 @@ class OrderController {
     async updateOrder(req, res) {
         try {
             const { id } = req.params
-            const { customer_name, branch_name, phone, book_name, book_size, book_count, note, deadline, customer_id } = req.body
+            const { customer_name, branch_name, phone, book_name, book_size, book_count, note, deadline } = req.body
 
-            const order = await pool.query('UPDATE orders SET customer_name = $1, branch_name = $2, phone = $3, book_name = $4, book_size = $5, book_count = $6, note = $7, deadline = $8, customer_id = $9 where id = $10', [customer_name, branch_name, phone, book_name, book_size, book_count, note, deadline, customer_id, id])
+            if (!book_name && !book_size && !book_count) {
+                await pool.query(
+                    'UPDATE orders SET customer_name = COALESCE($1, customer_name), branch_name = COALESCE($2, branch_name), phone = COALESCE($3, phone) WHERE id::text = $4 OR customer_id::text = $4',
+                    [customer_name, branch_name, phone, id]
+                )
+                return res.status(200).json({ message: 'Buyurtma mijoz ma\'lumotlari yangilandi!' })
+            }
+
+            await pool.query(
+                'UPDATE orders SET customer_name = $1, branch_name = $2, phone = $3, book_name = $4, book_size = $5, book_count = $6, note = $7, deadline = $8 WHERE id::text = $9 OR customer_id::text = $9',
+                [customer_name, branch_name, phone, book_name, book_size, book_count, note, deadline, id]
+            )
 
             res.status(200).json({ message: 'Buyurtma yangilandi!' })
         } catch (error) {
@@ -122,11 +145,11 @@ class OrderController {
 
             if (!telegram_id) return res.status(400).json({ message: 'Telegram ID topilmadi!' })
 
-            const order = await pool.query('SELECT status FROM orders WHERE customer_id = $1', [telegram_id])
+            const order = await pool.query('SELECT status, book_name, created_at FROM orders WHERE customer_id = $1 ORDER BY id DESC', [telegram_id])
 
             if (!order.rows.length) return res.status(404).json({ message: 'Buyurtma topilmadi!' })
 
-            res.status(200).json(order.rows[0].status)
+            res.status(200).json(order.rows)
         } catch (error) {
             console.log(error)
             res.status(500).json({ message: 'Serverda xatolik yuz berdi!' })

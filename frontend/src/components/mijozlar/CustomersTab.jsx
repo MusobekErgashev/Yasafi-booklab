@@ -9,8 +9,27 @@ import {
   Download,
   UserPlus
 } from 'lucide-react'
+import WarningModal from '../WarningModal';
+import api from '@/api/axios';
+import toast from 'react-hot-toast';
 
 const CustomersTab = ({ data }) => {
+  const [openWarningModal, setOpenWarningModal] = useState(false);
+  const [deletingCust, setDeletingCust] = useState(null);
+
+  async function deleteCustomer() {
+    setOpenWarningModal(false);
+
+    try {
+      const res = await api.delete(`customers/${deletingCust}`);
+      toast.success("Mijoz o'chirildi!");
+      setData(data.filter(c => c.id !== deletingCust));
+    } catch (error) {
+      toast.error("Xatolik yuz berdi!");
+      console.log(error)
+    }
+  }
+
   function formatDate(dateString) {
     const date = new Date(dateString);
     const day = String(date.getDate()).padStart(2, '0');
@@ -88,7 +107,7 @@ const CustomersTab = ({ data }) => {
                       <button className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all cursor-pointer" title="Tahrirlash">
                         <Edit2 className="w-4 h-4" />
                       </button>
-                      <button className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all cursor-pointer" title="O'chirish">
+                      <button onClick={() => { setOpenWarningModal(true); setDeletingCust(client.id) }} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all cursor-pointer" title="O'chirish">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
@@ -108,6 +127,19 @@ const CustomersTab = ({ data }) => {
         )}
       </div>
 
+      {
+        openWarningModal && (
+          <WarningModal
+            onConfirm={deleteCustomer}
+            onCancel={() => setOpenWarningModal(false)}
+            confirmText="O'chirish"
+            cancelText='Bekor qilish'
+            type='warning'
+            message="Mijozga tegishli barcha ma'lumotlar o'chib ketadi!"
+            title="Mijozni o'chirish"
+          />
+        )
+      }
     </div>
   )
 }
