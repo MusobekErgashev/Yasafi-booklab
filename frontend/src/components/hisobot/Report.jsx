@@ -8,55 +8,6 @@ import api from '@/api/axios'
 
 const Report = () => {
     const [activeTab, setActiveTab] = useState("employees")
-    const [employeesReport, setEmployeesReport] = useState([])
-    const [resourcesReport, setResourcesReport] = useState([])
-    const [loading, setLoading] = useState(false)
-
-    async function getData() {
-        setLoading(true)
-        try {
-            const [responseResourses, responseEmployees] = await Promise.all([
-                api.get('/resources/input'),
-                // api.get('/users')
-            ])
-            setResourcesReport(responseResourses.data)
-            // setEmployeesReport(responseEmployees.data)
-        } catch (error) {
-            toast.error("Ma'lumotlarni olishda xatolik yuz berdi")
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    useEffect(() => {
-        getData()
-    }, [])
-
-    // async function deleteEmployeeReport(id) {
-    //     try {
-    //         setLoading(true)
-    //         await api.delete(`/books/${id}/`)
-    //         toast.success("Kitob muvaffaqiyatli o'chirildi")
-    //         await getData()
-    //     } catch (error) {
-    //         toast.error("Kitobni o'chirishda xatolik yuz berdi")
-    //     } finally {
-    //         setLoading(false)
-    //     }
-    // }
-
-    async function deleteResourceReport(id) {
-        try {
-            setLoading(true)
-            await api.delete(`/resources/input/${id}/`)
-            toast.success("Resurs muvaffaqiyatli o'chirildi")
-            await getData()
-        } catch (error) {
-            toast.error("Resursni o'chirishda xatolik yuz berdi")
-        } finally {
-            setLoading(false)
-        }
-    }
 
     return (
         <div className='space-y-3 font-geist'>
@@ -77,7 +28,7 @@ const Report = () => {
                     <option value="">Barchasi</option>
                 </select>
             </div>
-            {activeTab === "employees" ? <EmployeesReportTab /> : <ResourceReportTab data={resourcesReport} />}
+            {activeTab === "employees" ? <EmployeesReportTab /> : <ResourceReportTab />}
         </div>
     )
 }

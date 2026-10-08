@@ -101,12 +101,7 @@ async function getCustomerInfo(telegram_id) {
     }
 }
 
-bot.api.setMyCommands([
-    {
-        command: "start",
-        description: "Boshlash"
-    },
-]);
+// setMyCommands logic moved to startBot() async function with proper error catching
 
 const sendStartMenu = async (ctx) => {
     userData.delete(ctx.from.id);
@@ -146,7 +141,7 @@ bot.on("callback_query:data", async (ctx) => {
     else if (data === "back") {
         try {
             await ctx.deleteMessage();
-        } catch (e) {}
+        } catch (e) { }
     }
     else if (data === "profile_edit") {
         userData.set(ctx.from.id, { step: "edit_name" });
@@ -318,7 +313,33 @@ bot.on("message:text", async (ctx) => {
     }
 });
 
-bot.start();
-console.log("Telegram bot ishga tushdi...");
+bot.catch((err) => {
+    console.error("Telegram bot update xatoligi:", err.error?.message || err.message || err);
+});
+
+async function startBot() {
+    try {
+        await bot.api.setMyCommands([
+            {
+                command: "start",
+                description: "Boshlash"
+            },
+        ]);
+    } catch (error) {
+        console.error("Telegram bot setMyCommands xatoligi (Internet yoki DNS ulanishda muammo):", error?.message || error);
+    }
+
+    try {
+        bot.start({
+            onStart: (botInfo) => {
+                console.log(`Telegram bot @${botInfo.username} muvaffaqiyatli ishga tushdi...`);
+            }
+        });
+    } catch (error) {
+        console.error("Telegram bot start xatoligi:", error?.message || error);
+    }
+}
+
+startBot();
 
 module.exports = bot;
