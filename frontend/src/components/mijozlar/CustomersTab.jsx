@@ -7,13 +7,25 @@ import {
   Edit2,
   Trash2,
   Download,
-  UserPlus
+  UserPlus,
+  DollarSign,
+  CircleDollarSign,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
 import WarningModal from '../WarningModal';
 import api from '@/api/axios';
 import toast from 'react-hot-toast';
 
-const CustomersTab = ({ data }) => {
+const CustomersTab = ({ 
+  data = [], 
+  total = 0, 
+  totalPages = 1, 
+  page = 1, 
+  setPage, 
+  loading = false, 
+  onRefresh 
+}) => {
   const [openWarningModal, setOpenWarningModal] = useState(false);
   const [deletingCust, setDeletingCust] = useState(null);
 
@@ -21,9 +33,11 @@ const CustomersTab = ({ data }) => {
     setOpenWarningModal(false);
 
     try {
-      const res = await api.delete(`customers/${deletingCust}`);
+      await api.delete(`customers/${deletingCust}`);
       toast.success("Mijoz o'chirildi!");
-      setData(data.filter(c => c.id !== deletingCust));
+      if (onRefresh) {
+        onRefresh();
+      }
     } catch (error) {
       toast.error("Xatolik yuz berdi!");
       console.log(error)
@@ -31,7 +45,9 @@ const CustomersTab = ({ data }) => {
   }
 
   function formatDate(dateString) {
+    if (!dateString) return '-';
     const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '-';
     const day = String(date.getDate()).padStart(2, '0');
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const year = date.getFullYear();
@@ -46,16 +62,7 @@ const CustomersTab = ({ data }) => {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-white p-4 rounded-xl border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.02)]">
         <div>
           <h3 className="text-[16px] font-bold text-slate-800">Jami mijozlar</h3>
-          <p className="text-[13px] text-slate-400 mt-0.5">Tizimdagi jami faol mijozlar soni: <span className="font-semibold text-slate-700">{data?.length} ta</span></p>
-        </div>
-
-        <div className="flex items-center gap-2 w-full sm:w-auto">
-          <button className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 text-[13px] font-medium text-slate-600 bg-slate-50 border border-slate-200 rounded-lg hover:bg-slate-100 transition-all cursor-pointer">
-            <Download className="w-4 h-4" /> Export (.xlsx)
-          </button>
-          <button className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 text-[13px] font-medium text-white bg-[#0f172a] rounded-lg hover:bg-[#1e293b] transition-all cursor-pointer shadow-sm">
-            <UserPlus className="w-4 h-4" /> Yangi mijoz
-          </button>
+          <p className="text-[13px] text-slate-400 mt-0.5">Tizimdagi jami faol mijozlar soni: <span className="font-semibold text-slate-700">{total || 0} ta</span></p>
         </div>
       </div>
 
@@ -65,66 +72,107 @@ const CustomersTab = ({ data }) => {
             <thead>
               <tr className="bg-slate-50/70 border-b border-slate-100 text-[13px] font-semibold text-slate-500 uppercase tracking-wider">
                 <th className="py-3.5 px-5 w-10 text-center"><span className="flex items-center justify-center gap-1">No</span></th>
-                <th className="py-3.5 px-5"><span className="flex items-center gap-1"><User className="w-3.5 h-3.5 mb-0.5" /> Mijoz ismi</span></th>
-                <th className="py-3.5 px-5"><span className="flex items-center gap-1"><Building2 className="w-3.5 h-3.5 mb-0.5" /> Kompaniya</span></th>
-                <th className="py-3.5 px-5"><span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5 mb-0.5" /> Telefon</span></th>
-                <th className="py-3.5 px-5"><span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5 mb-0.5" /> Qo'shilgan sana</span></th>
+                <th className="py-3.5 px-5"><span className="flex items-center gap-1"><User className="w-3.5 h-3.5" /> Mijoz ismi</span></th>
+                <th className="py-3.5 px-5"><span className="flex items-center gap-1"><Building2 className="w-3.5 h-3.5" /> Kompaniya</span></th>
+                <th className="py-3.5 px-5"><span className="flex items-center gap-1"><CircleDollarSign className="w-3.5 h-3.5" /> Qarz</span></th>
+                <th className="py-3.5 px-5"><span className="flex items-center gap-1"><Phone className="w-3.5 h-3.5" /> Telefon</span></th>
+                <th className="py-3.5 px-5"><span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" /> Qo'shilgan sana</span></th>
                 <th className="py-3.5 px-5 text-center w-28">Amallar</th>
               </tr>
             </thead>
 
             <tbody className="divide-y divide-slate-50 text-[14px] text-slate-700">
-              {data?.map((client, index) => (
-                <tr key={client.id} className="hover:bg-slate-50/50 transition-colors group">
-
-                  <td className="py-4 px-5 text-center font-mono text-[13px] font-medium text-slate-500">
-                    {index + 1}
+              {loading ? (
+                <tr>
+                  <td colSpan="7" className="py-12 text-center text-slate-400 font-medium">
+                    Yuklanmoqda...
                   </td>
-
-                  <td className="py-4 px-5 font-semibold text-slate-900">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-[13px]">
-                        {client?.customer_name?.charAt(0)}
-                      </div>
-                      <span>{client?.customer_name}</span>
-                    </div>
-                  </td>
-
-                  <td className="py-4 px-5 text-slate-600 font-medium">
-                    {client?.branch_name || <span className="text-slate-300 italic text-[13px]">Mavjud emas</span>}
-                  </td>
-
-                  <td className="py-4 px-5 font-medium text-slate-600">
-                    {client?.phone}
-                  </td>
-
-                  <td className="py-4 px-5 text-slate-400 text-[13px]">
-                    {formatDate(client?.created_at)}
-                  </td>
-
-                  <td className="py-4 px-5 text-center">
-                    <div className="flex items-center justify-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
-                      <button className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all cursor-pointer" title="Tahrirlash">
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => { setOpenWarningModal(true); setDeletingCust(client.id) }} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all cursor-pointer" title="O'chirish">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-
                 </tr>
-              ))}
+              ) : data?.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="py-12 text-center text-slate-400 font-medium">
+                    Mijozlar topilmadi.
+                  </td>
+                </tr>
+              ) : (
+                data?.map((client, index) => (
+                  <tr key={client.id} className="hover:bg-slate-50/50 transition-colors group">
+
+                    <td className="py-4 px-5 text-center font-mono text-[13px] font-medium text-slate-500">
+                      {(page - 1) * 10 + index + 1}
+                    </td>
+
+                    <td className="py-4 px-5 font-semibold text-slate-900">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-[13px]">
+                          {client?.customer_name?.charAt(0) || 'M'}
+                        </div>
+                        <span>{client?.customer_name}</span>
+                      </div>
+                    </td>
+
+                    <td className="py-4 px-5 text-slate-600 font-medium">
+                      {client?.branch_name || <span className="text-slate-300 italic text-[13px]">Mavjud emas</span>}
+                    </td>
+
+                    <td className="py-4 px-5 text-slate-600 font-medium">
+                      {client?.debt ? `${Number(client.debt).toLocaleString('uz-UZ')} UZS` : <span className="text-slate-400 italic text-[13px]">Mavjud emas</span>}
+                    </td>
+
+                    <td className="py-4 px-5 font-medium text-slate-600">
+                      {client?.phone || '-'}
+                    </td>
+
+                    <td className="py-4 px-5 text-slate-400 text-[13px]">
+                      {formatDate(client?.created_at)}
+                    </td>
+
+                    <td className="py-4 px-5 text-center">
+                      <div className="flex items-center justify-center gap-1.5 opacity-80 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => { setOpenWarningModal(true); setDeletingCust(client.id) }} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all cursor-pointer" title="O'chirish">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
 
-        {/* Agar mijozlar bo'lmasa ko'rinadigan qism */}
-        {data?.length === 0 && (
-          <div className="py-12 text-center text-slate-400 text-[14px]">
-            Mijozlar topilmadi.
+        {/* Sodda Pagination */}
+        <div className="flex items-center justify-between px-6 py-3.5 border-t border-slate-100 bg-slate-50/30">
+          <span className="text-xs font-medium text-slate-400">
+            Jami: <span className="font-bold text-slate-700">{total || 0}</span> ta
+          </span>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={page <= 1 || loading}
+              onClick={() => setPage && setPage(prev => Math.max(1, prev - 1))}
+              className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-white hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+              title="Oldingi sahifa"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            <span className="text-[13px] font-semibold text-slate-600 px-2 select-none">
+              {page} / {totalPages || 1}
+            </span>
+
+            <button
+              type="button"
+              disabled={page >= (totalPages || 1) || loading}
+              onClick={() => setPage && setPage(prev => Math.min(totalPages || 1, prev + 1))}
+              className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-white hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+              title="Keyingi sahifa"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
-        )}
+        </div>
       </div>
 
       {

@@ -20,7 +20,7 @@ const AddEmployeeReportModal = ({ onClose, onSubmit, isEditing, editingReportId,
         setHint("")
         try {
             if (isEditing) {
-                const response = await api.patch(`resource-reports/${editingReportId}`, { message: reportText.trim() })
+                const response = await api.patch(`employee-reports/${editingReportId}`, { message: reportText.trim() })
                 if (response.status === 200) {
                     toast.success("Hisobot muvaffaqiyatli tahrirlandi")
                     setReportText("")
@@ -28,7 +28,7 @@ const AddEmployeeReportModal = ({ onClose, onSubmit, isEditing, editingReportId,
                     onSubmit()
                 }
             } else {
-                const response = await api.post("resource-reports", { message: reportText.trim() })
+                const response = await api.post("employee-reports", { message: reportText.trim() })
                 if (response.status === 201) {
                     toast.success("Hisobot muvaffaqiyatli qo'shildi")
                     setReportText("")

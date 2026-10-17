@@ -6,22 +6,97 @@ class TaskController {
     async getAll(req, res) {
         try {
             const user = req.user;
+            const { status, date, page, limit: queryLimit, q, all } = req.query;
 
-            if (user.is_admin == true) {
-                const { rows } = await pool.query("SELECT * FROM tasks")
+            let params = []
+            let conditions = []
 
-                if (rows.length === 0) return res.status(404).json({ message: "Vazifalar topilmadi" })
-
-                return res.status(200).json({ total: rows.length, tasks: rows })
+            if (!user.is_admin) {
+                params.push(user.id)
+                conditions.push(`tasks.user_id = $${params.length}`)
             }
 
-            const { rows } = await pool.query("SELECT * FROM tasks WHERE user_id = $1", [user.id])
+            if (status && status !== 'all') {
+                params.push(status)
+                conditions.push(`tasks.status = $${params.length}`)
+            }
 
-            if (rows.length === 0) return res.status(404).json({ message: "Vazifalar topilmadi" })
+            if (date && date !== 'all') {
+                if (date === 'today' || date === 'bugun' || date === 'bugungi') {
+                    conditions.push(`tasks.created_at >= CURRENT_DATE`)
+                } else if (date === 'week' || date === 'hafta' || date === 'haftalik' || date === 'oxirgi_xafta') {
+                    conditions.push(`tasks.created_at >= CURRENT_DATE - INTERVAL '7 days'`)
+                } else if (date === 'month' || date === 'oy' || date === 'oylik') {
+                    conditions.push(`tasks.created_at >= CURRENT_DATE - INTERVAL '30 days'`)
+                }
+            }
 
-            return res.status(200).json({ total: rows.length, tasks: rows })
+            if (q && q.trim() !== '') {
+                params.push(`%${q.trim()}%`);
+                conditions.push(`(
+                    COALESCE(tasks.message, '') ILIKE $${params.length} 
+                    OR COALESCE(users.first_name, '') ILIKE $${params.length} 
+                    OR COALESCE(users.last_name, '') ILIKE $${params.length}
+                )`);
+            }
+
+            const whereSql = conditions.length > 0 ? " WHERE " + conditions.join(" AND ") : "";
+
+            if (all === 'true') {
+                let query = `
+                    SELECT 
+                        tasks.*, 
+                        users.first_name, 
+                        users.last_name 
+                    FROM tasks 
+                    LEFT JOIN users ON tasks.user_id = users.id
+                    ${whereSql}
+                    ORDER BY tasks.id DESC
+                `;
+                const { rows } = await pool.query(query, params);
+                return res.status(200).json({ total: rows.length, tasks: rows });
+            }
+
+            const pageNum = Math.max(1, parseInt(page, 10) || 1);
+            const limit = Math.max(1, parseInt(queryLimit, 10) || 10);
+            const offset = (pageNum - 1) * limit;
+
+            // Count query
+            const countQuery = `
+                SELECT COUNT(*) as total_count
+                FROM tasks
+                LEFT JOIN users ON tasks.user_id = users.id
+                ${whereSql}
+            `;
+            const countResult = await pool.query(countQuery, params);
+            const totalCount = parseInt(countResult.rows[0].total_count, 10) || 0;
+            const totalPages = Math.max(1, Math.ceil(totalCount / limit));
+
+            // Paginated items query
+            const listParams = [...params, limit, offset];
+            const listQuery = `
+                SELECT 
+                    tasks.*, 
+                    users.first_name, 
+                    users.last_name 
+                FROM tasks 
+                LEFT JOIN users ON tasks.user_id = users.id
+                ${whereSql}
+                ORDER BY tasks.id DESC
+                LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+            `;
+            const { rows } = await pool.query(listQuery, listParams);
+
+            return res.status(200).json({
+                total: totalCount,
+                total_pages: totalPages,
+                page: pageNum,
+                limit: limit,
+                tasks: rows
+            });
         } catch (error) {
-            return res.status(500).json({ message: "Serverda xatolik yuz berdi!" })
+            console.log(error);
+            return res.status(500).json({ message: "Serverda xatolik yuz berdi!" });
         }
     }
 
@@ -63,17 +138,26 @@ class TaskController {
                 return res.status(400).json({ message: "Status kiritilmagan" })
             }
 
-            let query = "UPDATE tasks SET status = $1 WHERE id = $2 AND user_id = $3 RETURNING *"
+            let query
             let queryParams = [status, id, user.id]
+
+            if (status === 'completing') {
+                query = "UPDATE tasks SET status = $1, started_at = COALESCE(started_at, NOW()) WHERE id = $2 AND user_id = $3 RETURNING *"
+            } else if (status === 'completed') {
+                query = "UPDATE tasks SET status = $1, finished_at = COALESCE(finished_at, NOW()) WHERE id = $2 AND user_id = $3 RETURNING *"
+            } else {
+                query = "UPDATE tasks SET status = $1 WHERE id = $2 AND user_id = $3 RETURNING *"
+            }
 
             const { rows } = await pool.query(query, queryParams)
 
             if (rows.length === 0) {
-                return res.status(404).json({ message: "Vazifa topilmadi yoki uni o'zgartirishga ruxsat yo'q" })
+                return res.status(403).json({ message: "Topshiriq statusini faqat topshiriq biriktirilgan xodim o'zgartira oladi!" })
             }
 
             return res.status(200).json(rows[0])
         } catch (error) {
+            console.log(error)
             return res.status(500).json({ message: "Serverda xatolik yuz berdi!" })
         }
     }

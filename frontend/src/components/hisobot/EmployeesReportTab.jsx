@@ -1,12 +1,14 @@
 import api from '@/api/axios'
-import { Edit3, Plus, Trash2 } from 'lucide-react'
+import { Edit3, Plus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import AddEmployeeReportModal from './AddEmployeeReportModal';
 import toast from 'react-hot-toast';
 import WarningModal from '../WarningModal';
 
-const EmployeesReportTab = () => {
-  const [reports, setReports] = useState({});
+const EmployeesReportTab = ({ query = '', dateFilter = '' }) => {
+  const [reports, setReports] = useState({ reports: [], total: 0, total_pages: 1 });
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [openAddModal, setOpenAddModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false)
@@ -17,14 +19,33 @@ const EmployeesReportTab = () => {
 
   async function fetchReports() {
     try {
-      const data = await api.get('employee-reports/')
-      setReports(data.data)
-    } catch (error) { }
+      setLoading(true)
+      const params = { page, limit: 10 }
+      if (query && query.trim() !== '') {
+        params.q = query.trim()
+      }
+      if (dateFilter && dateFilter !== '') {
+        params.date = dateFilter
+      }
+      const data = await api.get('employee-reports/', { params })
+      setReports(data.data || { reports: [], total: 0, total_pages: 1 })
+    } catch (error) {
+      setReports({ reports: [], total: 0, total_pages: 1 })
+    } finally {
+      setLoading(false)
+    }
   }
+
+  // Qidiruv yoki sana filtri o'zgarganda 1-sahifaga qaytarish
+  useEffect(() => {
+    setPage(1)
+  }, [query, dateFilter])
 
   useEffect(() => {
     fetchReports()
+  }, [page, query, dateFilter])
 
+  useEffect(() => {
     const fetchUser = async () => {
       try {
         const res = await api.get('/users/me')
@@ -94,7 +115,11 @@ const EmployeesReportTab = () => {
         </div>
       </div>
 
-      {!reports.reports ? (
+      {loading ? (
+        <div className="rounded-xl border border-slate-100 bg-white py-16 text-center text-slate-400 font-medium">
+          Yuklanmoqda...
+        </div>
+      ) : !reports.reports || reports.reports.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white/60 py-16 text-center">
           <p className="text-slate-500 text-sm">Hisobotlar topilmadi.</p>
         </div>
@@ -144,6 +169,39 @@ const EmployeesReportTab = () => {
         </div>
       )}
 
+      {/* Sodda Pagination */}
+      <div className="flex items-center justify-between px-6 py-3.5 border border-slate-100 rounded-xl bg-white shadow-[0_2px_8px_rgba(0,0,0,0.01)]">
+        <span className="text-xs font-medium text-slate-400">
+          Jami: <span className="font-bold text-slate-700">{reports.total || 0}</span> ta
+        </span>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={page <= 1 || loading}
+            onClick={() => setPage(prev => Math.max(1, prev - 1))}
+            className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+            title="Oldingi sahifa"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+
+          <span className="text-[13px] font-semibold text-slate-600 px-2 select-none">
+            {page} / {reports.total_pages || 1}
+          </span>
+
+          <button
+            type="button"
+            disabled={page >= (reports.total_pages || 1) || loading}
+            onClick={() => setPage(prev => Math.min(reports.total_pages || 1, prev + 1))}
+            className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+            title="Keyingi sahifa"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
       {
         openAddModal && (
           <AddEmployeeReportModal
@@ -161,7 +219,7 @@ const EmployeesReportTab = () => {
           <WarningModal
             title="Hisobotni o'chirish"
             text="Hisobotni o'chirishga ishonchingiz komilmi?"
-            message="Usbu amalni qaytarib bo'lmaydi"
+            message="Ushbu amalni qaytarib bo'lmaydi"
             type='warning'
             onConfirm={handleDeleteReport}
             onCancel={() => setOpenWaringModal(false)}

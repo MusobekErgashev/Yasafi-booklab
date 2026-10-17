@@ -11,7 +11,9 @@ import {
   Edit3,
   Trash2,
   Search,
-  UserPlus
+  UserPlus,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react'
 import api from '@/api/axios'
 import AddEmployeeModal from './AddEmployeeModal'
@@ -22,6 +24,9 @@ import useQuery from '@/utils/useQuery'
 const Employees = () => {
   const [employees, setEmployees] = useState([])
   const [total, setTotal] = useState(0)
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [loading, setLoading] = useState(false)
   const [openAddModal, setOpenAddModal] = useState(false)
   const [deleteWarn, setDeleteWarn] = useState(false)
   const [deletingId, setDeletingId] = useState(null)
@@ -29,25 +34,46 @@ const Employees = () => {
   const [isEditing, setIsEditing] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
 
-  const { query, setQuery, clearQuery } = useQuery();
+  const { query, setQuery, clearQuery } = useQuery()
 
   async function getEmployees() {
     try {
+      setLoading(true)
       setErrorMsg('')
-      const res = await api.get(`users?q=${query}`);
-      const { total, employees } = await res.data
-      setTotal(total)
-      setEmployees(employees)
+      const params = { page, limit: 10 }
+      if (query && query.trim() !== '') {
+        params.q = query.trim()
+      }
+      const res = await api.get('users', { params })
+      const data = res.data
+      setTotal(data.total || 0)
+      setTotalPages(data.total_pages || 1)
+      setEmployees(data.employees || [])
     } catch (error) {
       setEmployees([])
       setTotal(0)
-      setErrorMsg(error?.response?.data?.message)
+      setTotalPages(1)
+      setErrorMsg(error?.response?.data?.message || '')
+    } finally {
+      setLoading(false)
     }
   }
 
+  // Sahifadan chiqqanda qidiruv so'zini tozalash
+  useEffect(() => {
+    return () => {
+      clearQuery()
+    }
+  }, [clearQuery])
+
+  // Qidiruv o'zgarganda 1-sahifaga qaytarish
+  useEffect(() => {
+    setPage(1)
+  }, [query])
+
   useEffect(() => {
     getEmployees()
-  }, [query])
+  }, [page, query])
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
@@ -104,51 +130,92 @@ const Employees = () => {
             </thead>
 
             <tbody className="divide-y divide-slate-50 text-[14px] text-slate-700">
-              {employees.map((employee, index) => (
-                <tr key={employee.id} className="hover:bg-slate-50/50 transition-colors group">
-
-                  <td className="py-4 px-5 text-center font-mono text-[13px] font-medium text-slate-500">
-                    {index + 1}
-                  </td>
-
-                  <td className="py-4 px-5 font-semibold text-slate-900">
-                    <div className="flex items-center gap-2.5 capitalize">
-                      <div className="w-8 h-8 rounded-full bg-[#0f172a]/5 text-[#0f172a] flex items-center justify-center font-bold text-[13px]">
-                        {employee.first_name.charAt(0)}
-                      </div>
-                      <span>{employee.first_name + " " + employee.last_name}</span>
-                    </div>
-                  </td>
-
-                  <td className="py-4 px-5 font-medium text-slate-600">
-                    {employee.phone}
-                  </td>
-
-                  <td className="py-4 px-5 text-slate-400 text-[13px]">
-                    {formatDate(employee.created_at)}
-                  </td>
-
-                  <td className="py-4 px-5 text-center">
-                    <div className="flex items-center justify-center gap-1.5">
-                      <button onClick={() => { setOpenAddModal(true); setIsEditing(true); setEditingEmployee(employee) }} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all cursor-pointer" title="Tahrirlash">
-                        <Edit3 className="w-4 h-4" />
-                      </button>
-                      <button onClick={() => { setDeleteWarn(true); setDeletingId(employee.id) }} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all cursor-pointer" title="O'chirish">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
+              {loading ? (
+                <tr>
+                  <td colSpan="5" className="py-12 text-center text-slate-400 font-medium">
+                    Yuklanmoqda...
                   </td>
                 </tr>
-              ))}
+              ) : employees.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="py-12 text-center text-slate-400 font-medium">
+                    {errorMsg ? errorMsg : "Hozircha xodimlar mavjud emas."}
+                  </td>
+                </tr>
+              ) : (
+                employees.map((employee, index) => (
+                  <tr key={employee.id} className="hover:bg-slate-50/50 transition-colors group">
+
+                    <td className="py-4 px-5 text-center font-mono text-[13px] font-medium text-slate-500">
+                      {(page - 1) * 10 + index + 1}
+                    </td>
+
+                    <td className="py-4 px-5 font-semibold text-slate-900">
+                      <div className="flex items-center gap-2.5 capitalize">
+                        <div className="w-8 h-8 rounded-full bg-[#0f172a]/5 text-[#0f172a] flex items-center justify-center font-bold text-[13px]">
+                          {employee.first_name.charAt(0)}
+                        </div>
+                        <span>{employee.first_name + " " + employee.last_name}</span>
+                      </div>
+                    </td>
+
+                    <td className="py-4 px-5 font-medium text-slate-600">
+                      {employee.phone}
+                    </td>
+
+                    <td className="py-4 px-5 text-slate-400 text-[13px]">
+                      {formatDate(employee.created_at)}
+                    </td>
+
+                    <td className="py-4 px-5 text-center">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button onClick={() => { setOpenAddModal(true); setIsEditing(true); setEditingEmployee(employee) }} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-all cursor-pointer" title="Tahrirlash">
+                          <Edit3 className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => { setDeleteWarn(true); setDeletingId(employee.id) }} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-all cursor-pointer" title="O'chirish">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
 
-        {employees.length === 0 && (
-          <div className="py-12 text-center text-slate-400 text-[14px]">
-            {errorMsg ? errorMsg : "Hozircha xodimlar mavjud emas."}
+        {/* Sodda Pagination */}
+        <div className="flex items-center justify-between px-6 py-3.5 border-t border-slate-100 bg-slate-50/30">
+          <span className="text-xs font-medium text-slate-400">
+            Jami: <span className="font-bold text-slate-700">{total || 0}</span> ta
+          </span>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={page <= 1 || loading}
+              onClick={() => setPage(prev => Math.max(1, prev - 1))}
+              className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-white hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+              title="Oldingi sahifa"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+
+            <span className="text-[13px] font-semibold text-slate-600 px-2 select-none">
+              {page} / {totalPages || 1}
+            </span>
+
+            <button
+              type="button"
+              disabled={page >= (totalPages || 1) || loading}
+              onClick={() => setPage(prev => Math.min(totalPages || 1, prev + 1))}
+              className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-white hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+              title="Keyingi sahifa"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
-        )}
+        </div>
       </div>
 
       {openAddModal && (

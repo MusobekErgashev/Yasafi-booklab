@@ -2,6 +2,7 @@
 
 import api from '@/api/axios'
 import OrderCard from '@/components/buyurtmalar/OrderCard'
+import SetOrderPriceModal from '@/components/buyurtmalar/SetOrderPriceModal'
 import React, { useEffect, useState } from 'react'
 import { Listbox, ListboxButton, ListboxOption, ListboxOptions } from '@headlessui/react'
 import { ChevronsUpDown, Check, CircleCheck, Filter, Calendar, ArrowUpDown, RotateCcw, SlidersHorizontal, X, ChevronLeft, ChevronRight } from 'lucide-react'
@@ -40,6 +41,10 @@ const OrdersTable = () => {
     const [page, setPage] = useState(1)
     const [limit, setLimit] = useState(10)
     const [total, setTotal] = useState(0)
+
+    const [priceModalOpen, setPriceModalOpen] = useState(false)
+    const [selectedOrderForPrice, setSelectedOrderForPrice] = useState(null)
+    const [priceLoading, setPriceLoading] = useState(false)
 
     const { query, clearQuery } = useQuery()
 
@@ -94,6 +99,12 @@ const OrdersTable = () => {
         const nextIndex = Math.min(currentIndex + 1, statusMap.length - 1)
         const newStatus = statusMap[nextIndex]
 
+        if (newStatus === "delivered") {
+            setSelectedOrderForPrice(targetOrder)
+            setPriceModalOpen(true)
+            return
+        }
+
         try {
             await api.patch(`orders/${orderId}`, { status: newStatus })
             setOrders(prev => prev.map(order => {
@@ -102,6 +113,44 @@ const OrdersTable = () => {
             }))
         } catch (error) {
             console.log("Statusni o'zgartirishda xatolik:", error)
+        }
+    }
+
+    const handleSavePrice = async (priceValue, soldAtValue, isDebtValue = false, debtNote = null, debtDeadline = null) => {
+        if (!selectedOrderForPrice) return
+
+        const soldAt = soldAtValue || new Date().toISOString()
+
+        try {
+            setPriceLoading(true)
+            await api.patch(`orders/${selectedOrderForPrice.id}`, {
+                status: "delivered",
+                price: priceValue,
+                sold_at: soldAt,
+                is_debt: isDebtValue,
+                debt_note: isDebtValue ? (debtNote || null) : null,
+                debt_deadline: isDebtValue ? (debtDeadline || null) : null
+            })
+
+            setOrders(prev => prev.map(order => {
+                if (order.id !== selectedOrderForPrice.id) return order
+                return { 
+                    ...order, 
+                    status: "delivered", 
+                    price: priceValue, 
+                    sold_at: soldAt, 
+                    is_debt: isDebtValue, 
+                    debt_note: isDebtValue ? (debtNote || null) : null,
+                    debt_deadline: isDebtValue ? (debtDeadline || null) : null,
+                    isRejected: false 
+                }
+            }))
+            setPriceModalOpen(false)
+            setSelectedOrderForPrice(null)
+        } catch (error) {
+            console.log("Narxni saqlashda xatolik:", error)
+        } finally {
+            setPriceLoading(false)
         }
     }
 
@@ -401,6 +450,18 @@ const OrdersTable = () => {
                     </button>
                 </div>
             </div>
+
+            {/* Set Order Price Modal */}
+            <SetOrderPriceModal
+                isOpen={priceModalOpen}
+                onClose={() => {
+                    setPriceModalOpen(false)
+                    setSelectedOrderForPrice(null)
+                }}
+                order={selectedOrderForPrice}
+                onSubmit={handleSavePrice}
+                loading={priceLoading}
+            />
         </div>
     )
 }

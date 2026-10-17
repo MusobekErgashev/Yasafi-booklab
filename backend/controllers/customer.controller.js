@@ -5,8 +5,58 @@ class CustomerController {
 
     async getAllCustomers(req, res) {
         try {
-            const { rows } = await pool.query("SELECT * FROM customers");
-            res.json(rows);
+            const { page, limit: queryLimit, q, all } = req.query;
+
+            // Agar all === 'true' bo'lsa barcha mijozlarni qaytaramiz
+            if (all === 'true') {
+                const searchQuery = q && q.trim() !== '' ? `%${q.trim()}%` : '%';
+                const { rows } = await pool.query(
+                    `SELECT * FROM customers 
+                     WHERE (COALESCE(customer_name, '') ILIKE $1 
+                        OR COALESCE(phone, '') ILIKE $1 
+                        OR COALESCE(branch_name, '') ILIKE $1)
+                     ORDER BY id DESC`,
+                    [searchQuery]
+                );
+                return res.json(rows);
+            }
+
+            const pageNum = Math.max(1, parseInt(page, 10) || 1);
+            const limit = Math.max(1, parseInt(queryLimit, 10) || 10);
+            const offset = (pageNum - 1) * limit;
+            const searchQuery = q && q.trim() !== '' ? `%${q.trim()}%` : '%';
+
+            // Jami sonini hisoblash
+            const countQuery = `
+                SELECT COUNT(*) as total_count
+                FROM customers
+                WHERE (COALESCE(customer_name, '') ILIKE $1 
+                   OR COALESCE(phone, '') ILIKE $1 
+                   OR COALESCE(branch_name, '') ILIKE $1)
+            `;
+            const countRes = await pool.query(countQuery, [searchQuery]);
+            const totalCount = parseInt(countRes.rows[0].total_count, 10) || 0;
+            const totalPages = Math.max(1, Math.ceil(totalCount / limit));
+
+            // Sahifalangan mijozlar ro'yxati
+            const listQuery = `
+                SELECT *
+                FROM customers
+                WHERE (COALESCE(customer_name, '') ILIKE $1 
+                   OR COALESCE(phone, '') ILIKE $1 
+                   OR COALESCE(branch_name, '') ILIKE $1)
+                ORDER BY id DESC
+                LIMIT $2 OFFSET $3
+            `;
+            const result = await pool.query(listQuery, [searchQuery, limit, offset]);
+
+            res.status(200).json({
+                customers: result.rows,
+                page: pageNum,
+                limit: limit,
+                total_pages: totalPages,
+                total: totalCount
+            });
         } catch (error) {
             console.error(error);
             res.status(500).json({ message: "Internal server error" });
@@ -89,7 +139,7 @@ class CustomerController {
 
             if (!id) return res.status(400).json({ message: "Mijoz ID aniqlanmadi!" });
 
-            const { rows } = await pool.query('UPDATE customers SET debt = $1 WHERE id = $2 RETURNING *', [debt, id])
+            const { rows } = await pool.query('UPDATE customers SET debt = COALESCE(debt, 0) + $1 WHERE telegram_id = $2 OR id::text = $2 RETURNING *', [debt, id])
 
             if (rows.length === 0) return res.status(404).json({ message: "Mijoz topilmadi" });
 

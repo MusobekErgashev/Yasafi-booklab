@@ -5,17 +5,55 @@ class ResourceReportsController {
 
     async getAll(req, res) {
         try {
-            const query = `SELECT * FROM resource_reports ORDER BY created_at DESC`
-            const result = await pool.query(query)
+            const { page, limit: queryLimit, q, date } = req.query;
+            const pageNum = Math.max(1, parseInt(page, 10) || 1);
+            const limit = Math.max(1, parseInt(queryLimit, 10) || 10);
+            const offset = (pageNum - 1) * limit;
 
-            if (!result.rows.length) {
-                return res.status(404).json({ message: "Hisobotlar topilmadi!" })
+            let conditions = [];
+            let params = [];
+
+            if (q && q.trim() !== '') {
+                params.push(`%${q.trim()}%`);
+                conditions.push(`COALESCE(message, '') ILIKE $${params.length}`);
             }
 
-            res.status(200).json({ total: result.rows.length, reports: result.rows })
+            if (date && date !== 'all' && date !== '') {
+                if (date === 'today' || date === 'bugun') {
+                    conditions.push(`created_at >= CURRENT_DATE`);
+                } else if (date === 'week' || date === 'oxirgi_xafta' || date === 'oxirgi_hafta') {
+                    conditions.push(`created_at >= CURRENT_DATE - INTERVAL '7 days'`);
+                }
+            }
+
+            const whereSql = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+            // Jami sonini hisoblash
+            const countQuery = `SELECT COUNT(*) as total_count FROM resource_reports ${whereSql}`;
+            const countRes = await pool.query(countQuery, params);
+            const totalCount = parseInt(countRes.rows[0].total_count, 10) || 0;
+            const totalPages = Math.max(1, Math.ceil(totalCount / limit));
+
+            // Sahifalangan ro'yxat
+            const listParams = [...params, limit, offset];
+            const listQuery = `
+                SELECT * FROM resource_reports 
+                ${whereSql}
+                ORDER BY created_at DESC, id DESC
+                LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+            `;
+            const result = await pool.query(listQuery, listParams);
+
+            res.status(200).json({ 
+                total: totalCount, 
+                total_pages: totalPages,
+                page: pageNum,
+                limit: limit,
+                reports: result.rows 
+            });
         } catch (error) {
-            console.error("Error fetching resource reports:", error)
-            res.status(500).json({ message: "Serverda xatolik yuz berdi!" })
+            console.error("Error fetching resource reports:", error);
+            res.status(500).json({ message: "Serverda xatolik yuz berdi!" });
         }
     }
 

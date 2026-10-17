@@ -8,25 +8,63 @@ class UserController {
     async getAll(req, res) {
         try {
             const { is_admin } = req.user
-            const { q } = req.query
+            const { q, page, limit: queryLimit, all } = req.query
 
             if (!is_admin) {
                 return res.status(403).json({ message: "Sizga bunday imkoniyat berilmagan!" })
             }
 
-            const users = await pool.query('SELECT * FROM users WHERE is_admin = false AND (first_name ILIKE $1 OR last_name ILIKE $1)', [`%${q}%`])
+            const searchQuery = q && q.trim() !== '' ? `%${q.trim()}%` : '%'
 
-            if(!users.rows.length){
-                return res.status(404).json({ message: "Xodim topilmadi!" })
+            // Agar page berilmagan bo'lsa yoki all === 'true' bo'lsa (masalan modallarda barcha xodimlarni tanlash uchun)
+            if (all === 'true' || !page) {
+                const users = await pool.query(
+                    `SELECT id, first_name, last_name, phone, is_admin, created_at 
+                     FROM users 
+                     WHERE is_admin = false AND (first_name ILIKE $1 OR last_name ILIKE $1 OR phone ILIKE $1)
+                     ORDER BY id DESC`,
+                    [searchQuery]
+                )
+                return res.status(200).json({ 
+                    total: users.rows.length, 
+                    total_pages: 1,
+                    page: 1,
+                    limit: users.rows.length,
+                    employees: users.rows 
+                })
             }
 
-            const filteredUsers = users.rows.map(user => {
-                delete user.password
-                delete user.login
-                return user
-            })
+            const pageNum = Math.max(1, parseInt(page, 10) || 1)
+            const limit = Math.max(1, parseInt(queryLimit, 10) || 10)
+            const offset = (pageNum - 1) * limit
 
-            return res.status(200).json({ total: filteredUsers.length, employees: filteredUsers })
+            // Jami sonini hisoblash
+            const countRes = await pool.query(
+                `SELECT COUNT(*) as total_count 
+                 FROM users 
+                 WHERE is_admin = false AND (first_name ILIKE $1 OR last_name ILIKE $1 OR phone ILIKE $1)`,
+                [searchQuery]
+            )
+            const totalCount = parseInt(countRes.rows[0].total_count, 10) || 0
+            const totalPages = Math.max(1, Math.ceil(totalCount / limit))
+
+            // Sahifalangan ro'yxat
+            const result = await pool.query(
+                `SELECT id, first_name, last_name, phone, is_admin, created_at 
+                 FROM users 
+                 WHERE is_admin = false AND (first_name ILIKE $1 OR last_name ILIKE $1 OR phone ILIKE $1)
+                 ORDER BY id DESC 
+                 LIMIT $2 OFFSET $3`,
+                [searchQuery, limit, offset]
+            )
+
+            return res.status(200).json({ 
+                total: totalCount, 
+                total_pages: totalPages,
+                page: pageNum,
+                limit: limit,
+                employees: result.rows 
+            })
         } catch (error) {
             console.log(error)
             return res.status(500).json({ message: 'Serverda xatolik yuz berdi!' })
@@ -111,6 +149,8 @@ class UserController {
             await pool.query('INSERT INTO users (first_name, last_name, phone, login, password, is_admin) VALUES ($1, $2, $3, $4, $5, $6)', [
                 first_name, last_name, phone, login, await hashPassword(password), false
             ])
+
+            await pool.query("INSERT INTO employee_salaries (employee_name, phone, user_id) VALUES ($1, $2, $3)", [first_name + " " + last_name, phone, user.rows[0].id])
 
             return res.status(201).json({ message: "Foydalanuvchi muvaffaqiyatli yaratildi!" })
         } catch (error) {

@@ -5,21 +5,80 @@ class EmployeeReports {
 
     async getAll(req, res) {
         try {
-            const reports = await pool.query('SELECT * FROM employee_reports ORDER BY created_at DESC');
+            const { page, limit: queryLimit, q, date } = req.query;
+            const pageNum = Math.max(1, parseInt(page, 10) || 1);
+            const limit = Math.max(1, parseInt(queryLimit, 10) || 10);
+            const offset = (pageNum - 1) * limit;
 
-            if (reports.rows.length === 0) return res.status(404).json({ message: "Hisobot topilmadi!" });
+            let conditions = [];
+            let params = [];
 
-            const employeeIds = [...new Set(reports.rows.map((item) => item.employee_id))];
-            const employees = await pool.query('SELECT id, first_name, last_name FROM users WHERE id = ANY($1)', [employeeIds]);
+            if (q && q.trim() !== '') {
+                params.push(`%${q.trim()}%`);
+                conditions.push(`(employee_reports.message ILIKE $${params.length} OR users.first_name ILIKE $${params.length} OR users.last_name ILIKE $${params.length})`);
+            }
 
-            const employeeMap = new Map(employees.rows.map(emp => [Number(emp.id), emp]));
+            if (date && date !== 'all' && date !== '') {
+                if (date === 'today' || date === 'bugun') {
+                    conditions.push(`employee_reports.created_at >= CURRENT_DATE`);
+                } else if (date === 'week' || date === 'oxirgi_xafta' || date === 'oxirgi_hafta') {
+                    conditions.push(`employee_reports.created_at >= CURRENT_DATE - INTERVAL '7 days'`);
+                }
+            }
 
-            const reportsWithEmployee = reports.rows.map(report => ({
-                employee: employeeMap.get(Number(report.employee_id)) || null,
-                report: report
+            const whereSql = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+            // Jami sonini hisoblash
+            const countQuery = `
+                SELECT COUNT(*) as total_count
+                FROM employee_reports
+                LEFT JOIN users ON users.id = employee_reports.employee_id
+                ${whereSql}
+            `;
+            const countRes = await pool.query(countQuery, params);
+            const totalCount = parseInt(countRes.rows[0].total_count, 10) || 0;
+            const totalPages = Math.max(1, Math.ceil(totalCount / limit));
+
+            // Sahifalangan hisobotlar ro'yxati
+            const listParams = [...params, limit, offset];
+            const listQuery = `
+                SELECT 
+                    employee_reports.id as report_id,
+                    employee_reports.message,
+                    employee_reports.employee_id,
+                    employee_reports.created_at,
+                    users.id as emp_id,
+                    users.first_name,
+                    users.last_name
+                FROM employee_reports
+                LEFT JOIN users ON users.id = employee_reports.employee_id
+                ${whereSql}
+                ORDER BY employee_reports.created_at DESC, employee_reports.id DESC
+                LIMIT $${params.length + 1} OFFSET $${params.length + 2}
+            `;
+            const result = await pool.query(listQuery, listParams);
+
+            const reportsWithEmployee = result.rows.map(row => ({
+                employee: row.emp_id ? {
+                    id: row.emp_id,
+                    first_name: row.first_name,
+                    last_name: row.last_name
+                } : null,
+                report: {
+                    id: row.report_id,
+                    message: row.message,
+                    employee_id: row.employee_id,
+                    created_at: row.created_at
+                }
             }));
 
-            return res.status(200).json({ total: reports.rows.length, reports: reportsWithEmployee });
+            return res.status(200).json({ 
+                total: totalCount, 
+                total_pages: totalPages,
+                page: pageNum,
+                limit: limit,
+                reports: reportsWithEmployee 
+            });
         } catch (error) {
             console.log(error);
             return res.status(500).json({ message: "Serverda xatolik yuz berdi!" });

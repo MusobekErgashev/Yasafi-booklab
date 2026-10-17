@@ -51,9 +51,6 @@ const BranchesTab = ({ data }) => {
             Jami ro'yxatga olingan buyurtmachi korxonalar: <span className="font-semibold text-slate-700">{data.length} ta</span>
           </p>
         </div>
-        <button className="flex items-center gap-1.5 px-4 py-2 text-[13px] font-medium text-white bg-[#0f172a] rounded-lg hover:bg-[#1e293b] transition-all cursor-pointer shadow-sm">
-          <Plus className="w-4 h-4" /> Yangi filial
-        </button>
       </div>
 
       {/* 2. Filiallar Grid (Kartochkalar tizimi) */}

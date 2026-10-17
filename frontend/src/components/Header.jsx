@@ -16,7 +16,7 @@ const Header = () => {
   const { isDark, toggle: toggleDarkMode } = useDarkMode()
   const path = usePathname()
 
-  const noSearchPages = ['/profil', '/bildirishnoma', '/mijozlar', '/hisobot', '/dashboard', '/kitoblar', '/topshiriqlar', '/moliya'];
+  const noSearchPages = ['/profil', '/bildirishnoma', '/mijozlar', '/hisobot', '/dashboard', '/kitoblar', '/topshiriqlar'];
 
   return (
     <div className='w-full font-geist bg-white justify-between h-17.75 border-b border-gray-100 flex items-center px-4'>

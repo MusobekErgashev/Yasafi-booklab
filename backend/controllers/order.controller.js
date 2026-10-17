@@ -100,39 +100,128 @@ class OrderController {
         }
     }
 
-    async updateOrder(req, res) {
-        try {
-            const { id } = req.params
-            const { customer_name, branch_name, phone, book_name, book_size, book_count, note, deadline } = req.body
-
-            if (!book_name && !book_size && !book_count) {
-                await pool.query(
-                    'UPDATE orders SET customer_name = COALESCE($1, customer_name), branch_name = COALESCE($2, branch_name), phone = COALESCE($3, phone) WHERE id::text = $4 OR customer_id::text = $4',
-                    [customer_name, branch_name, phone, id]
-                )
-                return res.status(200).json({ message: 'Buyurtma mijoz ma\'lumotlari yangilandi!' })
-            }
-
-            await pool.query(
-                'UPDATE orders SET customer_name = $1, branch_name = $2, phone = $3, book_name = $4, book_size = $5, book_count = $6, note = $7, deadline = $8 WHERE id::text = $9 OR customer_id::text = $9',
-                [customer_name, branch_name, phone, book_name, book_size, book_count, note, deadline, id]
-            )
-
-            res.status(200).json({ message: 'Buyurtma yangilandi!' })
-        } catch (error) {
-            console.log(error)
-            res.status(500).json({ message: 'Serverda xatolik yuz berdi!' })
-        }
-    }
-
     async updateStatus(req, res) {
         try {
             const { id } = req.params
-            const { status } = req.body
+            const { status, price, sold_at, is_debt, debt_note, debt_deadline } = req.body
 
-            const order = await pool.query('UPDATE orders SET status = $1 where id = $2', [status, id])
+            const updates = []
+            const values = []
 
-            res.status(200).json({ message: 'Buyurtma statusi yangilandi!' })
+            if (status !== undefined) {
+                values.push(status)
+                updates.push(`status = $${values.length}`)
+            }
+
+            if (price !== undefined) {
+                const numPrice = price === '' || price === null ? null : Number(price)
+                values.push(numPrice)
+                updates.push(`price = $${values.length}`)
+            }
+
+            if (is_debt !== undefined) {
+                values.push(Boolean(is_debt))
+                updates.push(`is_debt = $${values.length}`)
+            }
+
+            if (debt_note !== undefined) {
+                values.push(debt_note)
+                updates.push(`debt_note = $${values.length}`)
+            }
+
+            if (debt_deadline !== undefined) {
+                values.push(debt_deadline || null)
+                updates.push(`debt_deadline = $${values.length}`)
+            }
+
+            if (sold_at !== undefined) {
+                values.push(sold_at)
+                updates.push(`sold_at = $${values.length}`)
+            } else if (price !== undefined && price !== null && price !== '') {
+                updates.push(`sold_at = NOW()`)
+            }
+
+            if (updates.length > 0) {
+                values.push(id)
+                const queryText = `UPDATE orders SET ${updates.join(', ')} WHERE id = $${values.length}`
+                await pool.query(queryText, values)
+            }
+
+            const orderRes = await pool.query(
+                'SELECT id, customer_id, customer_name, branch_name, phone, note, debt_note, debt_deadline, is_debt, price FROM orders WHERE id = $1',
+                [id]
+            )
+            const currentOrder = orderRes.rows[0]
+
+            if (currentOrder) {
+                const customerId = currentOrder.customer_id || currentOrder.phone || String(currentOrder.id)
+
+                const debtRes = await pool.query(
+                    currentOrder.customer_id
+                        ? 'SELECT COALESCE(SUM(price), 0) AS total_debt FROM orders WHERE customer_id::text = $1::text AND is_debt = true'
+                        : 'SELECT COALESCE(SUM(price), 0) AS total_debt FROM orders WHERE id = $1 AND is_debt = true',
+                    [currentOrder.customer_id ? String(currentOrder.customer_id) : id]
+                )
+                const totalDebt = Number(debtRes.rows[0]?.total_debt || 0)
+
+                if (currentOrder.customer_id) {
+                    await pool.query(
+                        'UPDATE customers SET debt = $1 WHERE telegram_id::text = $2::text OR id::text = $2::text',
+                        [totalDebt, String(currentOrder.customer_id)]
+                    )
+                }
+
+                if (totalDebt > 0) {
+                    let debtorName = currentOrder.customer_name
+                    let debtorBranch = currentOrder.branch_name
+                    let debtorPhone = currentOrder.phone
+                    let debtorNote = currentOrder.debt_note || currentOrder.note || null
+                    let debtorDeadline = currentOrder.debt_deadline || null
+
+                    // Agar ushbu buyurtma qarz bo'lmasa, lekin mijozning boshqa qarz buyurtmasi bo'lsa, oxirgisidan olamiz
+                    if (!currentOrder.is_debt && currentOrder.customer_id) {
+                        const lastDebtOrder = await pool.query(
+                            'SELECT customer_name, branch_name, phone, note, debt_note, debt_deadline FROM orders WHERE customer_id::text = $1::text AND is_debt = true ORDER BY id DESC LIMIT 1',
+                            [String(currentOrder.customer_id)]
+                        )
+                        if (lastDebtOrder.rows.length > 0) {
+                            const lOrder = lastDebtOrder.rows[0]
+                            debtorName = lOrder.customer_name || debtorName
+                            debtorBranch = lOrder.branch_name || debtorBranch
+                            debtorPhone = lOrder.phone || debtorPhone
+                            debtorNote = lOrder.debt_note || lOrder.note || debtorNote
+                            debtorDeadline = lOrder.debt_deadline || debtorDeadline
+                        }
+                    }
+
+                    const existingDebtor = await pool.query(
+                        'SELECT id FROM debtors WHERE customer_id::text = $1::text',
+                        [String(customerId)]
+                    )
+
+                    if (existingDebtor.rows.length > 0) {
+                        await pool.query(
+                            `UPDATE debtors 
+                             SET total_debt = $1, customer_name = $2, branch_name = $3, phone = $4, note = $5, deadline = $6 
+                             WHERE customer_id::text = $7::text`,
+                            [totalDebt, debtorName, debtorBranch, debtorPhone, debtorNote, debtorDeadline, String(customerId)]
+                        )
+                    } else {
+                        await pool.query(
+                            `INSERT INTO debtors (total_debt, customer_id, customer_name, branch_name, phone, note, deadline, created_at) 
+                             VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())`,
+                            [totalDebt, String(customerId), debtorName, debtorBranch, debtorPhone, debtorNote, debtorDeadline]
+                        )
+                    }
+                } else {
+                    await pool.query(
+                        'DELETE FROM debtors WHERE customer_id::text = $1::text',
+                        [String(customerId)]
+                    )
+                }
+            }
+
+            res.status(200).json({ message: 'Buyurtma statusi/narxi yangilandi!' })
         } catch (error) {
             console.log(error)
             res.status(500).json({ message: 'Serverda xatolik yuz berdi!' })

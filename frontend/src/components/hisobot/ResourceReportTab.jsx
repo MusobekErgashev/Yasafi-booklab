@@ -1,6 +1,6 @@
 import api from '@/api/axios'
-import { Edit3, Layers, PaintBucket, Plus, Trash2, UserPlus } from 'lucide-react'
-import React, { useEffect, useMemo, useState } from 'react'
+import { Edit3, Layers, PaintBucket, Plus, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
 import AddResourceReportModal from './AddResourceReportModal'
 import WarningModal from '../WarningModal'
 import toast from 'react-hot-toast'
@@ -15,8 +15,10 @@ const PaperIcon = ({ className = '' }) => (
   </svg>
 )
 
-const ResourceReportTab = () => {
-  const [reports, setReports] = useState([]);
+const ResourceReportTab = ({ query = '', dateFilter = '' }) => {
+  const [reports, setReports] = useState({ reports: [], total: 0, total_pages: 1 });
+  const [page, setPage] = useState(1);
+  const [loading, setLoading] = useState(false);
   const [openAddModal, setOpenAddModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false)
   const [editingReportId, setEditingReportId] = useState(null)
@@ -26,14 +28,31 @@ const ResourceReportTab = () => {
 
   async function fetchReports() {
     try {
-      const data = await api.get('resource-reports/')
-      setReports(data.data)
-    } catch (error) { }
+      setLoading(true)
+      const params = { page, limit: 10 }
+      if (query && query.trim() !== '') {
+        params.q = query.trim()
+      }
+      if (dateFilter && dateFilter !== '') {
+        params.date = dateFilter
+      }
+      const data = await api.get('resource-reports/', { params })
+      setReports(data.data || { reports: [], total: 0, total_pages: 1 })
+    } catch (error) {
+      setReports({ reports: [], total: 0, total_pages: 1 })
+    } finally {
+      setLoading(false)
+    }
   }
+
+  // Qidiruv yoki sana filtri o'zgarganda 1-sahifaga qaytarish
+  useEffect(() => {
+    setPage(1)
+  }, [query, dateFilter])
 
   useEffect(() => {
     fetchReports()
-  }, [])
+  }, [page, query, dateFilter])
 
   const handleDeleteReport = async () => {
     try {
@@ -77,7 +96,11 @@ const ResourceReportTab = () => {
         </div>
       </div>
 
-      {!reports.reports ? (
+      {loading ? (
+        <div className="rounded-xl border border-slate-100 bg-white py-16 text-center text-slate-400 font-medium">
+          Yuklanmoqda...
+        </div>
+      ) : !reports.reports || reports.reports.length === 0 ? (
         <div className="rounded-xl border border-dashed border-slate-300 bg-white/60 py-16 text-center">
           <p className="text-slate-500 text-sm">Hozircha resurs hisoboti mavjud emas.</p>
         </div>
@@ -126,6 +149,39 @@ const ResourceReportTab = () => {
         </div>
       )}
 
+      {/* Sodda Pagination */}
+      <div className="flex items-center justify-between px-6 py-3.5 border border-slate-100 rounded-xl bg-white shadow-[0_2px_8px_rgba(0,0,0,0.01)]">
+        <span className="text-xs font-medium text-slate-400">
+          Jami: <span className="font-bold text-slate-700">{reports.total || 0}</span> ta
+        </span>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            disabled={page <= 1 || loading}
+            onClick={() => setPage(prev => Math.max(1, prev - 1))}
+            className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+            title="Oldingi sahifa"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+
+          <span className="text-[13px] font-semibold text-slate-600 px-2 select-none">
+            {page} / {reports.total_pages || 1}
+          </span>
+
+          <button
+            type="button"
+            disabled={page >= (reports.total_pages || 1) || loading}
+            onClick={() => setPage(prev => Math.min(reports.total_pages || 1, prev + 1))}
+            className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+            title="Keyingi sahifa"
+          >
+            <ChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
       {
         openAddModal && (
           <AddResourceReportModal
@@ -153,6 +209,5 @@ const ResourceReportTab = () => {
     </div>
   )
 }
-
 
 export default ResourceReportTab

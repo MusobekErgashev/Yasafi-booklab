@@ -59,34 +59,10 @@ export const pages = [
     },
     {
         id: 8,
-        title: "Smena",
-        path: "/smena",
-        icon: <Hourglass size={24} />,
-        headTitle: "Smena",
-        headDescription: "Smena ro'yxati"
-    },
-    {
-        id: 9,
-        title: "Ombor",
-        path: "/ombor",
-        icon: <Warehouse size={24} />,
-        headTitle: "Ombor",
-        headDescription: "Omborlar ro'yxati"
-    },
-    {
-        id: 10,
         title: "Moliya",
         path: "/moliya",
         icon: <Handshake size={24} />,
         headTitle: "Moliya",
         headDescription: "Moliya"
-    },
-    {
-        id: 11,
-        title: "Dashboard",
-        path: "/dashboard",
-        icon: <ChartPie size={24} />,
-        headTitle: "Dashboard",
-        headDescription: "Dashboard"
-    },
+    }
 ]

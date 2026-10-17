@@ -2,10 +2,11 @@
 
 import React, { useEffect, useState, useRef } from 'react'
 import BooksTab from './BooksTab'
-import { Search, ChevronDown, Check, Filter } from 'lucide-react'
+import { Search, ChevronDown, Check, Filter, X } from 'lucide-react'
 import CategoriesTab from './CategoriesTab'
 import api from '@/api/axios'
 import toast from 'react-hot-toast'
+import useQuery from '@/utils/useQuery'
 
 const CustomSelect = ({ options, value, onChange, placeholder = "Barchasi" }) => {
     const [isOpen, setIsOpen] = useState(false)
@@ -78,29 +79,88 @@ const CustomSelect = ({ options, value, onChange, placeholder = "Barchasi" }) =>
 const Books = () => {
     const [activeTab, setActiveTab] = useState("books")
     const [categories, setCategories] = useState([])
-    const [books, setBooks] = useState([])
+    const [allBooks, setAllBooks] = useState([])
+    const [booksList, setBooksList] = useState({
+        books: [],
+        total: 0,
+        total_pages: 1
+    })
+    const [page, setPage] = useState(1)
     const [loading, setLoading] = useState(false)
     const [selectedCategory, setSelectedCategory] = useState("")
 
-    async function getData() {
+    const { query, setQuery, clearQuery } = useQuery()
+
+    async function fetchBooks() {
         setLoading(true)
         try {
-            const [responseCat, responseBook] = await Promise.all([
-                api.get('/categories/'),
-                api.get('/books/')
-            ])
-            setCategories(responseCat.data)
-            setBooks(responseBook.data)
+            const params = { page, limit: 10 }
+            if (query && query.trim() !== '') {
+                params.q = query.trim()
+            }
+            if (selectedCategory && selectedCategory !== '') {
+                params.category = selectedCategory
+            }
+            const res = await api.get('/books/', { params })
+            if (Array.isArray(res.data)) {
+                setBooksList({
+                    books: res.data,
+                    total: res.data.length,
+                    total_pages: 1
+                })
+            } else {
+                setBooksList(res.data)
+            }
         } catch (error) {
-            toast.error("Ma'lumotlarni olishda xatolik yuz berdi")
+            console.log(error)
+            toast.error("Kitoblarni olishda xatolik yuz berdi")
         } finally {
             setLoading(false)
         }
     }
 
+    async function fetchInitialData() {
+        try {
+            const [responseCat, responseBook] = await Promise.all([
+                api.get('/categories/'),
+                api.get('/books/', { params: { all: 'true' } })
+            ])
+            setCategories(responseCat.data)
+            const bData = Array.isArray(responseBook.data) ? responseBook.data : (responseBook.data?.books || [])
+            setAllBooks(bData)
+        } catch (error) {
+            console.log(error)
+        }
+    }
+
+    async function getData() {
+        await Promise.all([
+            fetchBooks(),
+            fetchInitialData()
+        ])
+    }
+
+    // Sahifadan chiqqanda qidiruv so'zini tozalash
     useEffect(() => {
-        getData()
+        return () => {
+            clearQuery()
+        }
+    }, [clearQuery])
+
+    // Qidiruv, kategoriya yoki tab o'zgarganda 1-sahifaga qaytarish
+    useEffect(() => {
+        setPage(1)
+    }, [query, selectedCategory, activeTab])
+
+    useEffect(() => {
+        fetchInitialData()
     }, [])
+
+    useEffect(() => {
+        if (activeTab === 'books') {
+            fetchBooks()
+        }
+    }, [page, query, selectedCategory, activeTab])
 
     async function deleteBook(id) {
         try {
@@ -128,27 +188,16 @@ const Books = () => {
         }
     }
 
-    const filteredBooks = books.filter((book) => {
-        let matchesCategory = true
-        if (selectedCategory === "uncategorized") {
-            matchesCategory = !book.category_name && (!book.category_id || !categories.some((c) => c.id === book.category_id))
-        } else if (selectedCategory !== "") {
-            const catObj = categories.find((c) => String(c.id) === String(selectedCategory))
-            matchesCategory = (catObj && book.category_name === catObj.name) || String(book.category_id) === String(selectedCategory)
-        }
-        return matchesCategory
-    })
-
     const categoryOptions = [
-        { value: "", label: "Barchasi", count: books.length },
+        { value: "", label: "Barchasi", count: allBooks.length },
         ...categories.map((cat) => ({
-            value: cat.id,
+            value: cat.name || cat.id,
             label: cat.name || cat.category_name,
-            count: cat.books ? cat.books.length : books.filter((b) => b.category_name === cat.name || b.category_id === cat.id).length
+            count: cat.books ? cat.books.length : allBooks.filter((b) => b.category_name === cat.name || String(b.category_id) === String(cat.id)).length
         }))
     ]
 
-    const uncategorizedCount = books.filter(
+    const uncategorizedCount = allBooks.filter(
         (b) => !b.category_name && (!b.category_id || !categories.some((c) => c.id === b.category_id))
     ).length
 
@@ -160,18 +209,50 @@ const Books = () => {
         })
     }
 
+    // Kategoriyalar tabida qidiruv ishlashi uchun
+    const filteredCategories = categories.filter((c) => {
+        if (!query || query.trim() === '') return true
+        return (c.name || '').toLowerCase().includes(query.trim().toLowerCase())
+    })
+
     return (
         <div className='space-y-3 font-geist'>
             <div className='flex gap-3 items-center flex-wrap'>
                 <div className="flex items-center">
-                    <button onClick={() => setActiveTab("books")} className={`${activeTab === "books" ? "bg-primary text-white border-primary" : "bg-white text-primary border-gray-200"} border cursor-pointer px-4 w-40 py-1.5 rounded-l-md`}>Kitoblar</button>
-                    <button onClick={() => setActiveTab("categories")} className={`${activeTab === "categories" ? "bg-primary text-white border-primary" : "bg-white text-primary border-gray-200"} border cursor-pointer px-4 w-40 py-1.5 rounded-r-md`}>Kategoriyalar</button>
+                    <button 
+                        onClick={() => setActiveTab("books")} 
+                        className={`${activeTab === "books" ? "bg-primary text-white border-primary" : "bg-white text-primary border-gray-200"} border cursor-pointer px-4 w-40 py-1.5 rounded-l-md transition-all`}
+                    >
+                        Kitoblar
+                    </button>
+                    <button 
+                        onClick={() => setActiveTab("categories")} 
+                        className={`${activeTab === "categories" ? "bg-primary text-white border-primary" : "bg-white text-primary border-gray-200"} border cursor-pointer px-4 w-40 py-1.5 rounded-r-md transition-all`}
+                    >
+                        Kategoriyalar
+                    </button>
                 </div>
 
                 <div className='flex gap-3 justify-between flex-1'>
                     <div className='border w-full group/search border-gray-200 focus-within:border-primary/45 transition-all duration-300 ease-in-out flex rounded-md px-3 py-1.5 gap-2 items-center'>
-                        <Search size={22} className='text-slate-400' />
-                        <input type="text" className='outline-none text-primary min-w-100 text-md w-full' placeholder={activeTab === "books" ? "Kitoblar ichidan qidirish..." : "Kategoriyalar ichidan qidirish..."} />
+                        <Search size={22} className='text-slate-400 shrink-0' />
+                        <input 
+                            type="text" 
+                            value={query}
+                            onChange={(e) => setQuery(e.target.value)}
+                            className='outline-none text-primary min-w-100 text-md w-full' 
+                            placeholder={activeTab === "books" ? "Kitoblar ichidan qidirish..." : "Kategoriyalar ichidan qidirish..."} 
+                        />
+                        {query && (
+                            <button 
+                                type="button" 
+                                onClick={clearQuery} 
+                                className="text-slate-400 hover:text-slate-600 cursor-pointer shrink-0"
+                                title="Tozalash"
+                            >
+                                <X size={18} />
+                            </button>
+                        )}
                     </div>
 
                     {
@@ -189,15 +270,19 @@ const Books = () => {
             {activeTab === "books" ? (
                 <BooksTab
                     categories={categories}
-                    books={filteredBooks}
+                    books={booksList?.books || []}
+                    total={booksList?.total || 0}
+                    totalPages={booksList?.total_pages || 1}
+                    page={page}
+                    setPage={setPage}
                     deleteBook={deleteBook}
                     refreshData={getData}
                     loading={loading}
                 />
             ) : (
                 <CategoriesTab
-                    categories={categories}
-                    books={books}
+                    categories={filteredCategories}
+                    books={allBooks}
                     deleteCategory={deleteCategory}
                     refreshData={getData}
                     loading={loading}

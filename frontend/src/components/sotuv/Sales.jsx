@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import {
     Search,
     Plus,
@@ -10,112 +10,95 @@ import {
     DollarSign,
     Calendar,
     X,
+    ChevronLeft,
     ChevronRight,
     TrendingUp,
     Layers,
     Sparkles,
     Maximize2
 } from 'lucide-react'
+import api from '@/api/axios'
+import useQuery from '@/utils/useQuery'
 
 const Sotuvlar = () => {
     // Statelar
-    const [salesList, setSalesList] = useState([
-        {
-            id: 1,
-            buyer_name: "Asilbek Olimov",
-            buyer_company: "Registon Nashriyoti",
-            book_name: "Countdown to Zero Day",
-            book_size: "A5",
-            quantity: 350,
-            created_at: "2026-07-15 14:20",
-            price: 22750000, // Jami summa (so'mda)
-            rate: 65000, // Kitobning dona narxi (yoki valyuta kursi)
-        },
-        {
-            id: 2,
-            buyer_name: "Musobek",
-            buyer_company: "Yasafi Booklab",
-            book_name: "Kiberxavfsizlik asoslari",
-            book_size: "B5",
-            quantity: 120,
-            created_at: "2026-07-14 11:05",
-            price: 9600000,
-            rate: 80000,
-        },
-        {
-            id: 3,
-            buyer_name: "Dostonbek",
-            buyer_company: "Smart Books MCHJ",
-            book_name: "Raqamli Qurollar Tarixi",
-            book_size: "A5",
-            quantity: 500,
-            created_at: "2026-07-10 09:30",
-            price: 30000000,
-            rate: 60000,
-        }
-    ])
-
-    const [searchQuery, setSearchQuery] = useState('')
-    const [isModalOpen, setIsModalOpen] = useState(false)
-    const [selectedSale, setSelectedSale] = useState(null) // Drawer uchun
-
-    // Yangi sotuv formasi uchun statelar
-    const [newSale, setNewSale] = useState({
-        buyer_name: '',
-        buyer_company: '',
-        book_name: '',
-        book_size: 'A5',
-        quantity: '',
-        price: '',
-        rate: ''
+    const [salesList, setSalesList] = useState({
+        sales: [],
+        total_money: 0,
+        total_debt: 0,
+        total_books: 0,
+        total_transaction: 0,
+        total_pages: 1,
+        total: 0
     })
+    const [selectedSale, setSelectedSale] = useState(null)
+    const [page, setPage] = useState(1)
+    const [loading, setLoading] = useState(false)
 
-    // Qidiruv filtri (Xaridor yoki Kitob nomi bo'yicha)
-    const filteredSales = salesList.filter(sale =>
-        sale.buyer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        sale.book_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        sale.buyer_company.toLowerCase().includes(searchQuery.toLowerCase())
-    )
+    const { query, clearQuery } = useQuery()
 
-    // Analitika
-    const totalSalesCount = filteredSales.length
-    const totalRevenue = filteredSales.reduce((acc, sale) => acc + Number(sale.price), 0)
-    const totalBooksSold = filteredSales.reduce((acc, sale) => acc + Number(sale.quantity), 0)
-
-    // Yangi sotuv qo'shish funksiyasi
-    const handleAddSale = (e) => {
-        e.preventDefault()
-        const saleData = {
-            id: Date.now(),
-            ...newSale,
-            quantity: Number(newSale.quantity),
-            price: Number(newSale.price),
-            rate: Number(newSale.rate),
-            created_at: new Date().toISOString().replace('T', ' ').substring(0, 16)
+    async function fetchSales() {
+        try {
+            setLoading(true)
+            const params = { page }
+            if (query && query.trim() !== '') {
+                params.q = query.trim()
+            }
+            const res = await api.get(`sales`, { params })
+            setSalesList(res.data)
+        } catch (error) {
+            console.log(error)
+        } finally {
+            setLoading(false)
         }
-        setSalesList([saleData, ...salesList])
-        setIsModalOpen(false)
-        // Formani tozalash
-        setNewSale({
-            buyer_name: '',
-            buyer_company: '',
-            book_name: '',
-            book_size: 'A5',
-            quantity: '',
-            price: '',
-            rate: ''
-        })
+    }
+
+    // Sahifadan chiqqanda qidiruv so'zini tozalash
+    useEffect(() => {
+        return () => {
+            clearQuery()
+        }
+    }, [clearQuery])
+
+    // Qidiruv o'zgarganda 1-sahifaga qaytarish
+    useEffect(() => {
+        setPage(1)
+    }, [query])
+
+    useEffect(() => {
+        fetchSales()
+    }, [page, query])
+
+    function formatDate(dateString) {
+        const date = new Date(dateString);
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+
+        return `${year}-${month}-${day} ${hours}:${minutes}`;
     }
 
     return (
-        <div className="space-y-6 font-satoshi relative">
+        <div className="space-y-6 font-geist relative">
 
             {/* 1. Analitika kartalari (Minimalist uslubda) */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
                 <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-[0_4px_12px_rgba(0,0,0,0.01)] flex items-center justify-between">
                     <div className="space-y-1">
                         <span className="text-slate-400 text-[12px] font-semibold block uppercase tracking-wider">Jami Tushum</span>
-                        <span className="text-[20px] font-black text-[#0F172A]">{totalRevenue.toLocaleString('uz-UZ')} UZS</span>
+                        <span className="text-[20px] font-black text-[#0F172A]">{salesList?.total_money?.toLocaleString('uz-UZ') || 0} UZS</span>
+                    </div>
+                    <div className="p-3 bg-emerald-50 text-emerald-500 rounded-xl">
+                        <DollarSign className="w-5 h-5" />
+                    </div>
+                </div>
+
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-[0_4px_12px_rgba(0,0,0,0.01)] flex items-center justify-between">
+                    <div className="space-y-1">
+                        <span className="text-slate-400 text-[12px] font-semibold block uppercase tracking-wider">Jami Qarz</span>
+                        <span className="text-[20px] font-black text-[#0F172A]">{salesList?.total_debt?.toLocaleString('uz-UZ') || 0} UZS</span>
                     </div>
                     <div className="p-3 bg-emerald-50 text-emerald-500 rounded-xl">
                         <DollarSign className="w-5 h-5" />
@@ -125,7 +108,7 @@ const Sotuvlar = () => {
                 <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-[0_4px_12px_rgba(0,0,0,0.01)] flex items-center justify-between">
                     <div className="space-y-1">
                         <span className="text-slate-400 text-[12px] font-semibold block uppercase tracking-wider">Sotilgan Kitoblar</span>
-                        <span className="text-[20px] font-black text-primary">{totalBooksSold.toLocaleString('uz-UZ')} dona</span>
+                        <span className="text-[20px] font-black text-primary">{salesList?.total_books || 0} dona</span>
                     </div>
                     <div className="p-3 bg-blue-50 text-blue-500 rounded-xl">
                         <BookOpen className="w-5 h-5" />
@@ -135,7 +118,7 @@ const Sotuvlar = () => {
                 <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-[0_4px_12px_rgba(0,0,0,0.01)] flex items-center justify-between">
                     <div className="space-y-1">
                         <span className="text-slate-400 text-[12px] font-semibold block uppercase tracking-wider">Sotuvlar soni</span>
-                        <span className="text-[20px] font-black text-primary">{totalSalesCount} ta bitim</span>
+                        <span className="text-[20px] font-black text-primary">{salesList?.total_transaction || 0} ta bitim</span>
                     </div>
                     <div className="p-3 bg-slate-50 text-slate-500 rounded-xl">
                         <TrendingUp className="w-5 h-5" />
@@ -150,16 +133,29 @@ const Sotuvlar = () => {
                         <thead>
                             <tr className="bg-slate-50/70 border-b border-slate-100 text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">
                                 <th className="py-4 px-5">Xaridor va Kompaniya</th>
-                                <th className="py-4 px-5">Kitob nomi va Hajmi</th>
-                                <th className="py-4 px-5">Soni (Tiraj)</th>
-                                <th className="py-4 px-5">Dona Narxi (Rate)</th>
+                                <th className="py-4 px-5">Kitob nomi va o'lchami</th>
+                                <th className="py-4 px-5">Soni</th>
+                                <th className="py-4 px-5">Dona Narxi</th>
                                 <th className="py-4 px-5">Umumiy Summa</th>
                                 <th className="py-4 px-5">Sana</th>
                                 <th className="py-4 px-5 text-right">Amallar</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100/80 text-[13px]">
-                            {filteredSales.map((sale) => (
+                            {loading ? (
+                                <tr>
+                                    <td colSpan="7" className="py-12 text-center text-slate-400 font-medium">
+                                        Yuklanmoqda...
+                                    </td>
+                                </tr>
+                            ) : salesList?.sales?.length === 0 ? (
+                                <tr>
+                                    <td colSpan="7" className="py-12 text-center text-slate-400 font-medium">
+                                        Sotuvlar topilmadi
+                                    </td>
+                                </tr>
+                            ) : (
+                                salesList?.sales?.map((sale) => (
                                 <tr
                                     key={sale.id}
                                     className="hover:bg-slate-50/40 transition-all cursor-pointer group"
@@ -172,10 +168,10 @@ const Sotuvlar = () => {
                                                 <User className="w-4 h-4" />
                                             </div>
                                             <div>
-                                                <div className="font-bold text-primary">{sale.buyer_name}</div>
-                                                <div className="text-[11px] text-slate-400 flex items-center gap-1 mt-0.5 font-medium">
+                                                <div className="font-bold text-primary capitalize">{sale?.customer_name}</div>
+                                                <div className="text-[11px] capitalize text-slate-500 flex items-center gap-1 mt-0.5 font-medium">
                                                     <Building2 className="w-3.5 h-3.5 text-slate-300" />
-                                                    {sale.buyer_company || "Shaxsiy xaridor"}
+                                                    {sale?.branch_name || "Filialsiz"}
                                                 </div>
                                             </div>
                                         </div>
@@ -191,24 +187,24 @@ const Sotuvlar = () => {
 
                                     {/* Soni */}
                                     <td className="py-4 px-5 font-bold text-slate-600">
-                                        {sale.quantity.toLocaleString('uz-UZ')} ta
+                                        {sale?.book_count} ta
                                     </td>
 
                                     {/* Kurs / Rate (Dona narxi) */}
                                     <td className="py-4 px-5 text-slate-500 font-semibold">
-                                        {sale.rate.toLocaleString('uz-UZ')} UZS
+                                        {sale?.price?.toLocaleString('uz-UZ')} UZS
                                     </td>
 
                                     {/* Jami Summa */}
                                     <td className="py-4 px-5">
-                                        <span className="font-extrabold text-[14px] text-emerald-600">
-                                            {sale.price.toLocaleString('uz-UZ')} UZS
+                                        <span className={`font-extrabold text-[14px] ${sale?.is_debt ? 'text-red-500' : 'text-emerald-600'}`}>
+                                            {sale?.total_price?.toLocaleString('uz-UZ')} UZS
                                         </span>
                                     </td>
 
                                     {/* Sana */}
                                     <td className="py-4 px-5 text-slate-400 font-medium whitespace-nowrap">
-                                        {sale.created_at}
+                                        {formatDate(sale?.sold_at)}
                                     </td>
 
                                     {/* Ko'rish */}
@@ -221,134 +217,44 @@ const Sotuvlar = () => {
                                         </button>
                                     </td>
                                 </tr>
-                            ))}
+                            )))}
                         </tbody>
                     </table>
                 </div>
-            </div>
 
-            {/* 4. MODAL OYNA (Yangi sotuv qo'shish) */}
-            {isModalOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/40 backdrop-blur-xs" onClick={() => setIsModalOpen(false)} />
+                {/* Sodda Pagination */}
+                <div className="flex items-center justify-between px-6 py-3.5 border-t border-slate-100 bg-slate-50/30">
+                    <span className="text-xs font-medium text-slate-400">
+                        Jami: <span className="font-bold text-slate-700">{salesList?.total || 0}</span> ta
+                    </span>
 
-                    <div className="relative bg-white w-full max-w-lg rounded-2xl shadow-2xl p-6 overflow-y-auto max-h-[90vh] animate-scale-in">
-                        <div className="flex justify-between items-center pb-4 border-b border-slate-100">
-                            <h4 className="text-[16px] font-black text-primary">Yangi sotuv qo'shish</h4>
-                            <button onClick={() => setIsModalOpen(false)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-50">
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
+                    <div className="flex items-center gap-2">
+                        <button
+                            type="button"
+                            disabled={page <= 1 || loading}
+                            onClick={() => setPage(prev => Math.max(1, prev - 1))}
+                            className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-white hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+                            title="Oldingi sahifa"
+                        >
+                            <ChevronLeft className="w-4 h-4" />
+                        </button>
 
-                        <form onSubmit={handleAddSale} className="space-y-4 pt-4 text-[13px]">
+                        <span className="text-[13px] font-semibold text-slate-600 px-2 select-none">
+                            {page} / {salesList?.total_pages || 1}
+                        </span>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <label className="text-slate-400 font-bold">Xaridor ismi</label>
-                                    <input
-                                        type="text"
-                                        required
-                                        value={newSale.buyer_name}
-                                        onChange={(e) => setNewSale({ ...newSale, buyer_name: e.target.value })}
-                                        placeholder="Masalan: Musobek"
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-primary/50"
-                                    />
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-slate-400 font-bold">Kompaniya nomi</label>
-                                    <input
-                                        type="text"
-                                        value={newSale.buyer_company}
-                                        onChange={(e) => setNewSale({ ...newSale, buyer_company: e.target.value })}
-                                        placeholder="Masalan: Yasafi Booklab"
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-primary/50"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="space-y-1">
-                                <label className="text-slate-400 font-bold">Kitob nomi</label>
-                                <input
-                                    type="text"
-                                    required
-                                    value={newSale.book_name}
-                                    onChange={(e) => setNewSale({ ...newSale, book_name: e.target.value })}
-                                    placeholder="Masalan: Countdown to Zero Day"
-                                    className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-primary/50"
-                                />
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <label className="text-slate-400 font-bold">Hajmi (Format)</label>
-                                    <select
-                                        value={newSale.book_size}
-                                        onChange={(e) => setNewSale({ ...newSale, book_size: e.target.value })}
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-primary/50 bg-white"
-                                    >
-                                        <option value="A5">A5</option>
-                                        <option value="B5">B5</option>
-                                        <option value="A4">A4</option>
-                                    </select>
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-slate-400 font-bold">Soni (Tiraj)</label>
-                                    <input
-                                        type="number"
-                                        required
-                                        value={newSale.quantity}
-                                        onChange={(e) => setNewSale({ ...newSale, quantity: e.target.value })}
-                                        placeholder="Masalan: 100"
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-primary/50"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-1">
-                                    <label className="text-slate-400 font-bold">Dona Narxi (Rate)</label>
-                                    <input
-                                        type="number"
-                                        required
-                                        value={newSale.rate}
-                                        onChange={(e) => setNewSale({ ...newSale, rate: e.target.value })}
-                                        placeholder="Masalan: 65000"
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-primary/50"
-                                    />
-                                </div>
-                                <div className="space-y-1">
-                                    <label className="text-slate-400 font-bold">Jami Summa (Price)</label>
-                                    <input
-                                        type="number"
-                                        required
-                                        value={newSale.price}
-                                        onChange={(e) => setNewSale({ ...newSale, price: e.target.value })}
-                                        placeholder="Masalan: 6500000"
-                                        className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:border-primary/50"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="pt-4 border-t border-slate-100 flex gap-3 justify-end">
-                                <button
-                                    type="button"
-                                    onClick={() => setIsModalOpen(false)}
-                                    className="px-4 py-2 border border-slate-200 rounded-xl text-slate-500 hover:bg-slate-50 font-bold cursor-pointer"
-                                >
-                                    Bekor qilish
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-5 py-2 bg-[#0F172A] hover:bg-[#1E293B] text-white rounded-xl font-bold cursor-pointer"
-                                >
-                                    Sotuvni saqlash
-                                </button>
-                            </div>
-
-                        </form>
+                        <button
+                            type="button"
+                            disabled={page >= (salesList?.total_pages || 1) || loading}
+                            onClick={() => setPage(prev => Math.min(salesList?.total_pages || 1, prev + 1))}
+                            className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-white hover:border-slate-300 disabled:opacity-30 disabled:cursor-not-allowed transition-all cursor-pointer"
+                            title="Keyingi sahifa"
+                        >
+                            <ChevronRight className="w-4 h-4" />
+                        </button>
                     </div>
                 </div>
-            )}
+            </div>
 
             {/* 5. SIDE DRAWER (Batafsil ko'rish oynasi) */}
             {selectedSale && (
@@ -372,15 +278,15 @@ const Sotuvlar = () => {
                             <div className="space-y-3 bg-slate-50/50 p-4 rounded-xl border border-slate-100 text-[13px]">
                                 <div className="flex justify-between">
                                     <span className="text-slate-400 font-medium">Xaridor:</span>
-                                    <span className="font-bold text-primary">{selectedSale.buyer_name}</span>
+                                    <span className="font-bold text-primary">{selectedSale.customer_name}</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-slate-400 font-medium">Kompaniya:</span>
-                                    <span className="font-bold text-primary">{selectedSale.buyer_company || "Shaxsiy xaridor"}</span>
+                                    <span className="font-bold text-primary">{selectedSale.branch_name || "Shaxsiy xaridor"}</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-slate-400 font-medium">Sotilgan sana:</span>
-                                    <span className="font-bold text-slate-600">{selectedSale.created_at}</span>
+                                    <span className="font-bold text-slate-600">{formatDate(selectedSale.sold_at)}</span>
                                 </div>
                             </div>
 
@@ -396,23 +302,23 @@ const Sotuvlar = () => {
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-slate-400 font-medium">Soni (Adadi):</span>
-                                    <span className="font-bold text-primary">{selectedSale.quantity.toLocaleString('uz-UZ')} dona</span>
+                                    <span className="font-bold text-primary">{selectedSale.book_count} dona</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-slate-400 font-medium">Dona narxi (Rate):</span>
-                                    <span className="font-bold text-primary">{selectedSale.rate.toLocaleString('uz-UZ')} UZS</span>
+                                    <span className="font-bold text-primary">{selectedSale.price} UZS</span>
                                 </div>
                             </div>
 
                             {/* Jami hisob kartasi */}
-                            <div className="p-4 bg-emerald-50/30 border border-emerald-100/50 rounded-xl flex items-center justify-between">
+                            <div className={`p-4 border rounded-xl flex items-center justify-between ${selectedSale?.is_debt ? 'bg-red-50/30 border-red-100/50' : 'bg-emerald-50/30 border-emerald-100/50'}`}>
                                 <div>
-                                    <span className="text-[11px] text-emerald-600/80 font-bold uppercase tracking-wider block">Jami Kelishilgan Summa</span>
-                                    <span className="text-[20px] font-black text-emerald-600 block mt-1">
-                                        {selectedSale.price.toLocaleString('uz-UZ')} UZS
+                                    <span className={`text-[11px] ${selectedSale?.is_debt ? 'text-red-500/80' : 'text-emerald-600/80'} font-bold uppercase tracking-wider block`}>Jami {selectedSale?.is_debt && '(qarzga)'}</span>
+                                    <span className={`text-[20px] font-black ${selectedSale?.is_debt ? 'text-red-500' : 'text-emerald-600'} block mt-1`}>
+                                        {selectedSale.total_price.toLocaleString('uz-UZ')} UZS
                                     </span>
                                 </div>
-                                <div className="p-2.5 bg-emerald-500 text-white rounded-lg">
+                                <div className={`p-2.5 ${selectedSale?.is_debt ? 'bg-red-500 text-white' : 'bg-emerald-500 text-white'} rounded-lg`}>
                                     <DollarSign className="w-5 h-5" />
                                 </div>
                             </div>
