@@ -58,11 +58,29 @@ const Finance = () => {
       const resp = await api.get('debtors', { params })
       setDebtors(resp.data)
     } catch (err) {
+      if (err?.response?.status === 403) {
+        window.location.href = '/buyurtmalar'
+        return
+      }
       setDebtors({ total_debt: 0, total_debtors: 0, expired: 0, total: 0, total_pages: 1, page: 1, limit: 10, debtors: [] })
     } finally {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    const checkRole = async () => {
+      try {
+        const res = await api.get('/users/me')
+        if (!res.data?.is_admin) {
+          window.location.href = '/buyurtmalar'
+        }
+      } catch (e) {
+        window.location.href = '/buyurtmalar'
+      }
+    }
+    checkRole()
+  }, [])
 
   useEffect(() => {
     getDebtors()

@@ -24,6 +24,10 @@ const Login = () => {
         password: trimmedPassword,
       });
 
+      if (response?.data?.user) {
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+      }
+
       toast.success(response?.data?.message);
 
       window.location.href = '/buyurtmalar';

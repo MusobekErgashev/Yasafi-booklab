@@ -169,11 +169,13 @@ const AllTasksTab = ({ dateFilter = "all", searchQuery = "" }) => {
           <p className="text-[13px] text-slate-400 mt-0.5">Jami topshiriqlar soni: <span className="font-semibold text-slate-700">{tasks?.total || 0} ta</span></p>
         </div>
 
-        <div className="flex items-center w-full sm:w-auto">
-          <button onClick={handleOpenAddModal} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 text-[14px] font-medium text-white bg-[#0f172a] rounded-lg hover:bg-[#1e293b] transition-all cursor-pointer shadow-sm">
-            <Plus className="w-4 h-4" /> Yangi topshiriq
-          </button>
-        </div>
+        {currentUser?.is_admin && (
+          <div className="flex items-center w-full sm:w-auto">
+            <button onClick={handleOpenAddModal} className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 text-[14px] font-medium text-white bg-[#0f172a] rounded-lg hover:bg-[#1e293b] transition-all cursor-pointer shadow-sm">
+              <Plus className="w-4 h-4" /> Yangi topshiriq
+            </button>
+          </div>
+        )}
       </div>
 
       {loading ? (

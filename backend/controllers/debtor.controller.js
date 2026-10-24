@@ -3,6 +3,11 @@ const pool = require("../config/db.js")
 class DebtorController {
     async getAll(req, res) {
         try {
+            const { is_admin } = req.user;
+            if (!is_admin) {
+                return res.status(403).json({ message: "Sizga bunday imkoniyat berilmagan!" });
+            }
+
             const { page, limit: queryLimit, q, all } = req.query;
 
             // Umumiy statistika (kartochkalar uchun)
@@ -124,10 +129,16 @@ class DebtorController {
 
     async update(req, res) {
         try {
-            const { id } = req.params
-            const { amount, date } = req.body
+            const { id } = req.params;
+            const { amount, date } = req.body;
+            const { is_admin } = req.user;
 
-            const numAmount = Number(amount)
+            if (!is_admin) {
+                return res.status(403).json({ message: "Siz bu amalni bajarish huquqiga ega emassiz!" });
+            }
+
+            const numAmount = Number(amount);
+
             if (!numAmount || numAmount <= 0) {
                 return res.status(400).json({ message: "To'lov summasi musbat son bo'lishi kerak!" })
             }
@@ -170,7 +181,7 @@ class DebtorController {
                 await pool.query(
                     "UPDATE customers SET debt = $1 WHERE telegram_id::text = $2::text OR id::text = $2::text",
                     [newDebt, String(currentDebtor.customer_id)]
-                ).catch(() => {})
+                ).catch(() => { })
             }
 
             const updatedRow = updateResult.rows[0]

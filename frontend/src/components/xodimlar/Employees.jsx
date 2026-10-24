@@ -50,6 +50,10 @@ const Employees = () => {
       setTotalPages(data.total_pages || 1)
       setEmployees(data.employees || [])
     } catch (error) {
+      if (error?.response?.status === 403) {
+        window.location.href = '/buyurtmalar'
+        return
+      }
       setEmployees([])
       setTotal(0)
       setTotalPages(1)
@@ -58,6 +62,20 @@ const Employees = () => {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    const checkRole = async () => {
+      try {
+        const res = await api.get('/users/me')
+        if (!res.data?.is_admin) {
+          window.location.href = '/buyurtmalar'
+        }
+      } catch (err) {
+        window.location.href = '/buyurtmalar'
+      }
+    }
+    checkRole()
+  }, [])
 
   // Sahifadan chiqqanda qidiruv so'zini tozalash
   useEffect(() => {
